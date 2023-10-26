@@ -1,0 +1,87 @@
+---
+title: "Sex Volcano plots"
+author: "Annika Jorgensen"
+date: "2023-02-09"
+output: html_document
+---
+
+**Purpose**
+
+The purpose of this document is to create a volcano plot for the overall tumor tumor-adjacent comparisons from the DEA on the ICGC Viral-Mediated Hepatocellular Carcinoma data.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)                                  
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(UpSetR)
+library(formatR)
+library(tinytex)
+```
+
+
+```{r Working_Directory}
+setwd('~/Desktop/Research Projects/Liver Cancer Project')
+```
+
+**Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by converting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+```
+
+**Read in data**
+```{r read_data}
+overall <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/gene_list_tumor_vs_tumor_adjacent.csv")
+```
+
+**Tumor vs Tumor-Adjacent Volcano Plot**
+```{r Tumor vs Tumor -adjacent Volcano Plot }
+df <- data.frame(overall$DEGs.adj.P.Val, overall$DEGs.logFC, overall$DEGs.GENEID, overall$DEGs.gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "id", "name")
+
+p <-ggplot(data=df, aes( x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)
+
+p
+p2 <- p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed") + geom_hline(yintercept= 2, linetype= "dashed") +  xlim(c(-15, 15)) + ylim(c(0, 50))
+
+p2
+```
