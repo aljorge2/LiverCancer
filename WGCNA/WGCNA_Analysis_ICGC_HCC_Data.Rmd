@@ -1,0 +1,332 @@
+---
+title: "WCNA Analysis HCC data"
+author: "Annika Jorgensen"
+date: '2022-11-03'
+output: html_document
+---
+
+## **README**
+
+**Purpose:** To perform the WGCNA analysis on the ICGC Hepatocellular Carcinoma data 
+
+**Methods:** Following the tutorial from https://bioinformaticsworkbook.org/tutorials/wgcna.html#gsc.tab=0 to perform this analysis. Will note decisions and assumptions as I go through in order to doublecheck them with the team. 
+
+**Libraries**
+```{r libraries, include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(impute)
+library(preprocessCore)
+library(WGCNA)
+library(plyr)
+library(limma)
+library(edgeR)
+library(biomaRt)
+library(org.Mm.eg.db)
+library(DGEobj)
+library(DGEobj.utils)
+```
+
+## **Reading in Data**
+
+```{r read in metadata}
+setwd("~/R/Liver Cancer Project")
+
+metadata <- read.table("~/R/Liver Cancer Project/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",")
+tumorAdjacentExp <- read.table("~/R/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE)
+colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp))
+
+# Importing gene annotations
+#genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
+genes <- read.table("~/R/Liver Cancer Project/Metadata//gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- data.frame(genes)
+tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
+genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
+# Calculating gene length, this is needed for calculating the FPKM values
+genes$length <- with(genes, end - start)
+
+#tumorAdjacentExp <- t(tumorAdjacentExp)
+#tumorAdjacentExp <- data.frame(tumorAdjacentExpSubset)
+
+# Removing RK023 due to low quality
+metadata <- metadata[!(metadata$ID == "RK023") , ]
+
+# Subsetting and ordering metadata to match the count matrix
+tumorAdjacentExpSubset <- tumorAdjacentExp[,colnames(tumorAdjacentExp) %in% metadata$sampleid]
+#dim(tumorAdjacentExpSubset)
+metadataSubset <- metadata[metadata$sampleid %in% colnames(tumorAdjacentExpSubset),]
+metadataSubset <- metadataSubset[match(colnames(tumorAdjacentExpSubset), metadataSubset$sampleid),]
+rownames(metadataSubset) <- metadataSubset$sampleid
+identical(colnames(tumorAdjacentExpSubset),metadataSubset$sampleid)
+
+#tumorAdjacentExpSubset <- t(tumorAdjacentExpSubset)
+#tumorAdjacentExpSubset <- data.frame(tumorAdjacentExpSubset)
+```
+
+```{r tissue and DGE object}
+# Adding tissue type, converting categorical variables to factors
+metadataSubset$tumor <- as.numeric(grepl('tumor', metadataSubset$sampleid, ignore.case=T))
+metadataSubset$gender_tissue <- paste(metadataSubset$Gender, metadataSubset$tumor, sep="_")
+metadataSubset$gender_tissue_viral <- paste(metadataSubset$gender_tissue, metadataSubset$Virus_infection, sep="_")
+metadataSubset$library_type <- metadataSubset$strandedness
+
+# Creating the DGEList object
+
+dge <- DGEList(counts=tumorAdjacentExpSubset, genes=genes)
+
+dge$counts <- convertCounts(dge$counts, unit="TPM", geneLength=genes$length)
+
+colnames(dge) <- colnames(tumorAdjacentExpSubset)
+dge$samples$sex <- metadataSubset$Gender
+dge$samples$viral <- factor(metadataSubset$Virus_infection)
+dge$samples$ID <- metadataSubset$ID
+dge$samples$tumor <- metadataSubset$tumor
+dge$samples$gender_tissue <- metadataSubset$gender_tissue
+dge$samples$gender_tissue_viral <- metadataSubset$gender_tissue_viral
+dge$samples$library_type <- metadataSubset$library_type
+keep <- rowSums(dge$counts>=10) >= 1
+dge <- dge[keep,,keep.lib.size=FALSE]
+
+
+table(dge$samples$gender_tissue_viral)
+dim(dge$genes)
+
+TPM<- t(dge$counts)
+TPM<-as.data.frame(TPM)
+```
+
+```{r threshold calculations, include=FALSE}
+allowWGCNAThreads() # Allowing multi-threading
+
+powers = c(c(1:10), seq(from = 5, to = 20, by = 2)) # Choosing a set of soft-thresholding powers, these were selected based on the tutorial only
+
+sft = pickSoftThreshold(TPM, blockSize = 100, powerVector = powers, verbose = 5) # Check with Ken on each of these parameters
+```
+
+```{r plot scale independence}
+pdf("~/R/Liver Cancer Project/Figures/WGCNA_Scale_Independence.pdf")
+plot(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     xlab = "Soft Threshold (power)",
+     ylab = "Scale Free Topology Model Fit, signed R^2",
+     main = paste("Scale independence")
+)
+text(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     labels = powers, cex = 0.9, col = "red"
+)
+abline(h = 0.90, col = "red")
+```
+
+```{r Scale Independence}
+plot(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     xlab = "Soft Threshold (power)",
+     ylab = "Scale Free Topology Model Fit, signed R^2",
+     main = paste("Scale independence")
+)
+text(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     labels = powers, cex = 0.9, col = "red"
+)
+abline(h = 0.90, col = "red")
+```
+
+```{r scale connectivity}
+pdf("~/R/Liver Cancer Project/Figures/WGCNA_Scale_Connectivity.pdf")
+plot(sft$fitIndices[, 1],
+     sft$fitIndices[, 5],
+     xlab = "Soft Threshold (power)",
+     ylab = "Mean Connectivity",
+     type = "n",
+     main = paste("Mean connectivity")
+)
+text(sft$fitIndices[, 1],
+     sft$fitIndices[, 5],
+     labels = powers,
+     cex = 0.9, col = "red")
+k=softConnectivity(datExpr = TPM, power=10)
+```
+
+```{r print scale connectivity}
+plot(sft$fitIndices[, 1],
+     sft$fitIndices[, 5],
+     xlab = "Soft Threshold (power)",
+     ylab = "Mean Connectivity",
+     type = "n",
+     main = paste("Mean connectivity")
+)
+text(sft$fitIndices[, 1],
+     sft$fitIndices[, 5],
+     labels = powers,
+     cex = 0.9, col = "red")
+k=softConnectivity(datExpr = TPM, power=10)
+```
+
+```{r topology}
+pdf("~/R/Liver Cancer Project/Figures/WGCNA_scale_free.pdf")
+scaleFreePlot(k, main="Check scale free topology\n")
+```
+
+```{r print topology}
+scaleFreePlot(k, main="Check scale free topology\n")
+```
+
+## Calculate and plot WGCNA network
+
+Picking power threshold of 20 based on Mean Connectivity graph and Scale independence graph. Check with Elizabeth just in case 
+```{r Calculating WGCNA}
+allowWGCNAThreads()
+picked_power = 10 
+temp_cor <- cor
+cor <- WGCNA::cor
+
+
+netwk <- blockwiseModules(TPM,                # <= input matrix
+
+                          # == Adjacency Function ==
+                          power = picked_power,                # <= power here
+                          networkType = "signed",
+
+                          # == Tree and Block Options ==
+                          deepSplit = 2,
+                          pamRespectsDendro = F,
+                          # detectCutHeight = 0.75,
+                          #minModuleSize = 30,
+                          #maxBlockSize = 4000,
+
+                          # == Module Adjustments ==
+                          reassignThreshold = 0,
+                          mergeCutHeight = 0.25,
+
+                          # == TOM == Archive the run results in TOM file (saves time)
+                          saveTOMs = T,
+                          saveTOMFileBase = "ER",
+
+                          # == Output Options
+                          numericLabels = T,
+                          verbose = 3)
+
+# Convert labels to colors for plotting
+mergedColors = labels2colors(netwk$colors)
+# Plot the dendrogram and the module colors underneath
+plotDendroAndColors(
+  netwk$dendrograms[[1]],
+  mergedColors[netwk$blockGenes[[1]]],
+  "Modules",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05 )
+
+pdf("~/R/Liver Cancer Project/Figures/Dendrogram.pdf")
+plotDendroAndColors(
+  netwk$dendrograms[[1]],
+  mergedColors[netwk$blockGenes[[1]]],
+  "Module colors",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05 )
+dev.off()
+
+cor <- temp_cor
+```
+
+## Calculate and plot module-trait correlations
+```{r}
+module_df <- data.frame(
+  gene_id = names(netwk$colors),
+  colors = labels2colors(netwk$colors)
+)
+
+# Get Module Eigengenes per cluster
+MEs0 <- moduleEigengenes(TPM, mergedColors)$eigengenes
+print(colnames(MEs0))
+
+module_black <- module_df[which(module_df$colors=="black"),]
+black_len <- as.numeric(length(module_black[,1]))
+module_blue <- module_df[which(module_df$colors=="blue"),]
+blue_len <- as.numeric(length(module_blue[,1]))
+module_brown <- module_df[which(module_df$colors=="brown"),]
+brown_len <- as.numeric(length(module_brown[,1]))
+module_cyan <- module_df[which(module_df$colors=="cyan"),]
+cyan_len <- as.numeric(length(module_cyan[,1]))
+module_green <- module_df[which(module_df$colors=="green"),]
+green_len <- as.numeric(length(module_green[,1]))
+module_greenyellow <- module_df[which(module_df$colors=="greenyellow"),]
+greenyellow_len <- as.numeric(length(module_greenyellow[,1]))
+module_grey <- module_df[which(module_df$colors=="grey"),]
+grey_len <- as.numeric(length(module_grey[,1]))
+module_lightcyan <- module_df[which(module_df$colors=="lightcyan"),]
+lightcyan_len <- as.numeric(length(module_lightcyan[,1]))
+module_magenta <- module_df[which(module_df$colors=="magenta"),]
+magenta_len <- as.numeric(length(module_magenta[,1]))
+module_midnightblue <- module_df[which(module_df$colors=="midnightblue"),]
+midnightblue_len <- as.numeric(length(module_midnightblue[,1]))
+module_pink <- module_df[which(module_df$colors=="pink"),]
+pink_len <- as.numeric(length(module_pink[,1]))
+module_purple <- module_df[which(module_df$colors=="purple"),]
+purple_len <- as.numeric(length(module_purple[,1]))
+module_red <- module_df[which(module_df$colors=="red"),]
+red_len <- as.numeric(length(module_red[,1]))
+module_salmon <- module_df[which(module_df$colors=="salmon"),]
+salmon_len <- as.numeric(length(module_salmon[,1]))
+module_tan <- module_df[which(module_df$colors=="tan"),]
+tan_len <- as.numeric(length(module_tan[,1]))
+module_turquoise <- module_df[which(module_df$colors=="turquoise"),]
+turquoise_len <- as.numeric(length(module_turquoise[,1]))
+module_yellow <- module_df[which(module_df$colors=="yellow"),]
+yellow_len <- as.numeric(length(module_yellow[,1]))
+
+colnames(MEs0) <- c(paste("black (", black_len, ")", sep=""),paste("blue (", blue_len, ")", sep=""),paste("brown (", brown_len, ")",sep=""),
+                    paste("cyan (", cyan_len, ")",sep=""), paste("green (", green_len, ")",sep=""), paste("greenyellow (", greenyellow_len, ")",sep=""), 
+                    paste("grey (", grey_len, ")", sep=""), paste("lightcyan (", lightcyan_len, ")",sep=""), paste("magenta (", magenta_len, ")",sep=""),
+                    paste("midnightblue (", midnightblue_len, ")",sep=""), paste("pink (", pink_len, ")",sep=""), paste("purple (", purple_len, ")",sep=""),
+                    paste("red (", red_len, ")", sep=""), paste("salmon (", salmon_len, ")",sep=""), paste("tan (", tan_len, ")",sep=""),
+                    paste("turquoise (", turquoise_len, ")", sep=""),paste("yellow (", yellow_len, ")", sep=""))
+
+MEs0 <- MEs0[,17:1]
+module_order = names(MEs0) %>% gsub("ME","", .)
+
+# Add treatment names
+MEs0$treatment = metadataSubset$gender_tissue_viral
+
+# tidy & plot data
+mME = MEs0 %>%
+  pivot_longer(-treatment) %>%
+  mutate(
+    name = gsub("ME", "", name),
+    name = factor(name, levels = module_order)
+  )
+
+
+mME %>% ggplot(., aes(x=fct_inorder(treatment), y=name, fill=value)) +
+  geom_tile() +
+  theme_bw() +
+  scale_fill_gradient2(
+    low = "blue",
+    high = "red",
+    mid = "white",
+    midpoint = 0,
+    limit = c(-1,1)) +
+  theme(axis.text.x = element_text(angle=90)) +
+  labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
+```
+
+
+```{r output module trait}
+pdf("~/R/Liver Cancer Project/Figures/Module-trait-relationship.pdf")
+mME %>% ggplot(., aes(x=fct_inorder(treatment), y=name, fill=value)) +
+  geom_tile() +
+  theme_bw() +
+  scale_fill_gradient2(
+    low = "blue",
+    high = "red",
+    mid = "white",
+    midpoint = 0,
+    limit = c(-1,1)) +
+  theme(axis.text.x = element_text(angle=90)) +
+  labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
+dev.off()
+```
