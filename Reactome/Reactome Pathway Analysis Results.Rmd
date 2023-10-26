@@ -1,0 +1,317 @@
+---
+title: "Reactome Pathway Results"
+author: "Annika Jorgensen"
+date: "2022-12-07"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+geometry: left=1in,right=1in,top=1in,bottom=1in
+fontsize: 11pt
+---
+
+Title: "Reactome Pathway Results"  
+Author: Annika Jorgensen  
+Date: 12/07/2022 
+Purpose: The purpose of this file is to generate comparisons and find commonalities and differences between lists of pathways created by doing a Reactome pathway analysis. The comparisons are done for overall tumor tumor adjacent, male and female tumor tumor adjacent, HBV and HCV tumor tumor adjacent
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)                                  
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(UpSetR)
+library(formatR)
+library(tinytex)
+```
+
+
+```{r Working_Directory}
+setwd('~/Desktop/Research Projects/Liver Cancer Project')
+```
+
+## **Tumor vs. Tumor-adjacent and sex stratified comparisons**
+
+A gene list was generated from a differential expression analysis (DEA) and input into Reactome. A CSV file containing all the pathway enrichment information was downloaded. The CSV files are then read in and stored into variables.
+
+"tumor_tumor_adjacent" contains the pathway information from an overall tumor-tumor adjacent DEA.
+
+"male_all" contains the pathway information from a male tumor-tumor adjacent DEA.
+
+"female_all" contains the pathway information from a female tumor-tumor adjacent DEA.
+
+```{r data }
+
+tumor_tumor_adjacent <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Tumor Tumor-adjacent results.csv")
+
+male_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Male_results.csv")
+
+female_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Female_results.csv")
+
+```
+
+The pathway information is being filtered by a false discovery rate (FDR) of less than 0.05. The which() command is used to locate which rows in the "Entities.FDR" column (the column containing the FDRs) have values less than 0.05 in the file, and then outputs those rows into the "subsetted" variables. 
+```{r FDR}
+
+tumor_tumor_adjacent_Subset <- tumor_tumor_adjacent[which(tumor_tumor_adjacent$Entities.FDR < 0.05), ]
+
+male_all_subset <-  male_all[which(male_all$Entities.FDR < 0.05), ]
+
+female_all_subset <- female_all[which(female_all$Entities.FDR < 0.05), ]
+```
+
+Here, we are finding pathways that are common between multiple variables. The commands all have the same structure, where we locate which pathway names are in another variable and output those rows into a new variable. The contents of the shared variables are listed below:
+
+"tumor_tumor_adjacent_male" are the pathways that are in common between the overall tumor-tumor adjacent and male tumor-tumor adjacent comparisons.
+
+"tumor_tumor_adjacent_female" are the pathways that are in common between the overall tumor-tumor adjacent and female tumor-tumor adjacent comparisons.
+
+"male_female" are the pathways that are in common between the male and female tumor-tumor adjacent comparisons.
+```{r in}
+ tumor_tumor_adjacent_male <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% male_all_subset$Pathway.name), ]
+
+tumor_tumor_adjacent_female <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% female_all_subset$Pathway.name), ]
+
+male_female <- male_all_subset[which(female_all_subset$Pathway.name %in% male_all_subset$Pathway.name), ]
+```
+
+This code generates an upset plot for the overall tumor-tumor adjacent, male, and female tumor-tumor adjacent comparisons. The upset plot functions like a multiple Venn diagram, illustrating how many pathways are shared between multiple sets. In this specific plot, 41 pathways are shared by all, 10 are unique to female, 2 are unique to male, 2 are shared by tumor-tumor adjacent and male only, 1 is unique to tumor-tumor adjacent, and 1 is shared by female and tumor-tumor adjacent only.
+```{r Upset R}
+input <- list(tumor_tumor_adjacent_Subset$Pathway.name, male_all_subset$Pathway.name, female_all_subset$Pathway.name)
+
+names(input) <- c("all", "male", "female")
+
+upset(fromList(input), order.by= "freq", nsets=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/upsetplot_sex_stratified.pdf", width = 12, height = 12)
+ upset(fromList(input), order.by= "freq", nsets=3, line.size=1.5, text.scale= c(5,5,4.5,2.0,5,5))
+ dev.off()
+```
+
+This chunk generates a variable called "male_shared" which stores the pathway information for all 41 pathways that are enriched in all of the comparisons. The chunk also writes out a CSV file containing the names of these pathways. This is achieved by selecting pathways from the "tumor_tumor_adjacent_male" variable (which contains pathways shared by the overall tumor-tumor adjacent comparison and the male tumor-tumor adjacent comparison) that are also present in the "female_all_subset" variable (which contains all filtered pathway enrichment information from the female tumor-tumor adjacent comparison). The selected pathways are then stored in the "male_shared" variable.  
+```{r Male Matrix subset 1}
+male_shared <- tumor_tumor_adjacent_male[which(tumor_tumor_adjacent_male$Pathway.name %in% female_all_subset$Pathway.name), ]
+
+write.csv(male_shared$Pathway.name, "~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Shared Pathways.csv")
+```
+
+This code creates a variable that contains the pathway information for the 10 pathways that are unique to the female tumor-tumor adjacent comparison. This is done by finding the pathways in the "female_all_subset" variable that are **not** in the "male_all_subset" variable (which contains all the filtered pathway enrichment information from the male tumor-tumor adjacent comparison) and storing it in a variable called "female_unique". The "female_unique" variable is then overwritten by finding the pathways that are in "female_unique" but **not** in the "tumor_tumor_adjacent_Subset" variable (which contains all the filtered pathway enrichment information from the overall tumor-tumor adjacent comparison).  
+```{r Unique to Female}
+female_unique <- female_all_subset[-which(female_all_subset$Pathway.name %in%male_all_subset$Pathway.name), ]
+
+female_unique <- female_unique[-which(female_unique$Pathway.name %in% tumor_tumor_adjacent_Subset$Pathway.name), ]
+
+```
+
+The code creates a variable that contains the pathway information for the two pathways that are unique to the male tumor-tumor adjacent comparison. The process is similar to the one used in the previous code chunk.
+```{r Unique to Male}
+
+male_unique <- male_all_subset[-which(male_all_subset$Pathway.name %in% female_all_subset$Pathway.name), ]
+
+male_unique <- male_unique[-which(male_unique$Pathway.name %in% tumor_tumor_adjacent_Subset$Pathway.name), ]
+```
+
+The code creates a variable that contains the pathway information for the one pathway that is unique to the overall tumor-tumor adjacent comparison. The process is similar to the one used to generate the "female_unique" variable.
+```{r Unique to tumor adjacent}
+tumor_tumor_adjacent_unique <- tumor_tumor_adjacent_Subset[-which(tumor_tumor_adjacent_Subset$Pathway.name %in% female_all_subset$Pathway.name), ]
+
+tumor_tumor_adjacent_unique <- tumor_tumor_adjacent_unique[-which(tumor_tumor_adjacent_unique$Pathway.name %in% male_all_subset$Pathway.name), ]
+```
+
+This code generates the two pathways that are shared by the male tumor-tumor adjacent and the overall tumor-tumor adjacent comparisons. The process used is a combination of the one used to output pathways that are unique to a specific comparison and the one used to output the pathway enrichment information shared by all comparisons.
+```{r Male and all}
+
+shared_male_tumor <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% male_all_subset$Pathway.name), ]
+
+shared_male_tumor <- shared_male_tumor[-which(shared_male_tumor$Pathway.name %in% female_all_subset$Pathway.name), ]
+```
+
+This chunk generates the one pathway that is shared by overall tumor-tumor adjacent comparisons and female tumor-tumor adjacent comparisons.   
+```{r Female and all}
+
+shared_female_tumor <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% female_all_subset$Pathway.name), ]
+
+shared_female_tumor <- shared_female_tumor[-which(shared_female_tumor$Pathway.name %in% male_all_subset$Pathway.name), ]
+```
+
+## **Etiology Specific Pathway Analysis**
+
+Here we are reading a csv that contains in the pathway enrichment information from the HBV and HCV tumor-tumor adjacent comparisons and storing into the "HBV_all" and "HCV_all" variables. "HBV_all" contains the information from the HBV comparisons and "HCV_all" contains the information about the HCV comparisons. 
+
+```{r reading in DEGs}
+
+HBV_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HBV_results.csv")
+HCV_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HCV_results.csv")
+
+
+```
+
+This code is filtering the pathways in "HBV_all" and "HCV_all" by their FDR values. "HBV_all_subset" and "HCV_all_subset" contain pathways with false discovery rates less than 0.05 
+```{r etiology subsetting}
+HBV_all_subset <-  HBV_all[which(HBV_all$Entities.FDR < 0.05), ]
+HCV_all_subset <- HCV_all[which(HCV_all$Entities.FDR < 0.05), ]
+```
+
+This code creates variables that have paths that are shared. The contents of the variables are listed below
+
+1) The variable "tumor_tumor_adjacent_HBV" contains the pathway enrichment information of pathways shared between the overall tumor-tumor adjacent comparison and the HBV tumor-tumor adjacent comparison. 
+
+2) The variable "tumor_tumor_adjacent_HCV" contains the pathway enrichment information of pathways shared between the overall tumor-tumor adjacent comparison and the HCV tumor-tumor adjacent comparison.
+
+3) The variable "HBV_HCV" contains the pathway enrichment information of pathways shared between the HBV and HCV tumor-tumor adjacent comparisons. 
+```{r shared genes}
+tumor_tumor_adjacent_HBV <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% HBV_all_subset$Pathway.name), ]
+
+tumor_tumor_adjacent_HCV <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% HCV_all_subset$Pathway.name), ]
+
+HBV_HCV <- HBV_all_subset[which(HBV_all_subset$Pathway.name %in% HCV_all_subset$Pathway.name), ]
+```
+
+This code creates an upset plot using the pathway names from the overall tumor-tumor adjacent, HBV, and HCV datasets. The upset plot reveals that 37 pathways are shared by all comparisons, 7 are unique to HBV, 4 are shared by overall tumor-tumor adjacent and HBV only, 3 are shared by overall tumor-tumor adjacent and HCV only, 2 are unique to HCV, and one is unique to overall tumor-tumor adjacent. The plot is outputted to a PDF file with formatting modifications made to line weight and text size.
+```{r etiology upset plot}
+input <- list(tumor_tumor_adjacent_Subset$Pathway.name, HBV_all_subset$Pathway.name, HCV_all_subset$Pathway.name)
+
+names(input) <- c("all", "HBV", "HCV")
+
+upset(fromList(input), order.by= "freq", nsets=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/upsetplot_etiology_stratified.pdf", width = 12, height = 12)
+ upset(fromList(input), order.by= "freq", nsets=3, line.size=1.5, text.scale= c(5,5,4.5,2.0,5,5))
+ dev.off()
+```
+This code creates a variable that stores the 37 pathways shared by all the comparisons.
+```{r shared pathways}
+shared_etiology <- tumor_tumor_adjacent_HBV[which(tumor_tumor_adjacent_HBV$Pathway.name %in% HCV_all_subset$Pathway.name), ]
+
+write.csv(shared_etiology, "~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/all_shared_etiology_pathways.csv")
+```
+
+This code creates a variable that stores the 7 pathways that are unique to the HBV tumor-tumor adjacent comparisons. 
+```{r unique to HBV}
+HBV_unique <- HBV_all_subset[-which(HBV_all_subset$Pathway.name %in% HCV_all_subset$Pathway.name), ]
+
+HBV_unique <- HBV_unique[-which(HBV_unique$Pathway.name %in% tumor_tumor_adjacent_Subset$Pathway.name), ]
+```
+
+This code creates a variable that stores the 2 pathways that are unique to HCV tumor-tumor adjacent comparisons.
+```{r Unique to HCV}
+HCV_unique <- HCV_all_subset[-which(HCV_all_subset$Pathway.name %in% HBV_all_subset$Pathway.name), ]
+
+HCV_unique<- HCV_unique[-which(HCV_unique$Pathway.name %in% tumor_tumor_adjacent_Subset$Pathway.name), ]
+```
+
+This code creates a variable that stores the 4 pathways that are shared by overall tumor-tumor adjacent and HBV only.  
+```{r HBV and all}
+HBV_and_tumor_tumor_adjacent <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% HBV_all_subset$Pathway.name), ]
+
+HBV_and_tumor_tumor_adjacent <- HBV_and_tumor_tumor_adjacent[-which(HBV_and_tumor_tumor_adjacent$Pathway.name %in% HCV_all_subset$Pathway.name), ] 
+```
+
+This code creates a variable that stores the 3 pathways that are shared by tumor-tumor adjacent and HCV only.
+```{r HCV and all}
+HCV_and_tumor_tumor_adjacent <- tumor_tumor_adjacent_Subset[which(tumor_tumor_adjacent_Subset$Pathway.name %in% HCV_all_subset$Pathway.name), ]
+
+HCV_and_tumor_tumor_adjacent <-
+HCV_and_tumor_tumor_adjacent[-which(HCV_and_tumor_tumor_adjacent$Pathway.name %in% HBV_all_subset$Pathway.name), ]
+```
+
+This code creates a variable that stores the one pathway that is unique to the overall tumor-tumor adjacent comparison.
+```{r Unique to all}
+unique_to_all <- tumor_tumor_adjacent_Subset[-which(tumor_tumor_adjacent_Subset$Pathway.name %in% HBV_all_subset$Pathway.name), ]
+
+unique_to_all <- unique_to_all[-which(unique_to_all$Pathway.name %in% HCV_all_subset$Pathway.name), ]
+```
+
+##**Etiology Results with Sex added as a Covariate**
+
+This chunk is reading in CSV files, that house pathway result data, into variables. The results were obtained by doing a pathway analysis using Reactome on ICGC data where a DEA was performed. The data was subsetted by etiology with sex added as a covariate. The code from the DEA can be found in the RMD file titled "Viral_Etiology_DEA_covariate.RMD". 
+
+```{r reading in etiology data}
+HBV_covariate <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HBV_covariate_results.csv")
+HCV_covariate <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HBV_covariate_results.csv")
+
+sex_covariate_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/tumor tumor adjacent sex covariate.csv")
+```
+
+The pathway information is being filtered by a false discovery rate (FDR) of less than 0.05.
+```{r FDR subset}
+
+HBV_covariate_subset <- HBV_covariate[which(HBV_covariate$Entities.FDR < 0.05), ]
+
+HCV_covariate_subset <- HCV_covariate[which(HCV_covariate$Entities.FDR < 0.05), ]
+
+sex_subset <- sex_covariate_all[which(sex_covariate_all$Entities.FDR < 0.05), ]
+```
+
+This code creates variables that have paths that are shared. The contents of the variables are listed below
+
+1) The variable "tumor_tumor_adjacent_HBV" contains the pathway enrichment information of pathways shared between the overall tumor-tumor adjacent comparison and the HBV tumor-tumor adjacent comparison. 
+
+2) The variable "tumor_tumor_adjacent_HCV" contains the pathway enrichment information of pathways shared between the overall tumor-tumor adjacent comparison and the HCV tumor-tumor adjacent comparison.
+
+3) The variable "HBV_HCV" contains the pathway enrichment information of pathways shared between the HBV and HCV tumor-tumor adjacent comparisons. 
+```{r tumor tumor adjacent}
+sex_subset_HBV_covariate <- sex_subset[which(sex_subset$Pathway.name %in% HBV_covariate_subset$Pathway.name), ]
+
+sex_subset_HCV_covariate <- sex_subset[which(sex_subset$Pathway.name %in% HCV_covariate_subset$Pathway.name), ]
+
+HBV_HCV_covariate <- HBV_covariate_subset[which(HBV_covariate_subset$Pathway.name %in% HCV_covariate_subset$Pathway.name), ]
+
+HBV_HCV_covariate_tta <- sex_subset_HBV_covariate[which(sex_subset_HBV_covariate$Pathway.name %in% sex_subset_HCV_covariate$Pathway.name), ]
+```
+
+This code creates an upset plot using the pathway names from the overall tumor-tumor adjacent, HBV, and HCV datasets where sex was added as a covariate.
+```{r Sex as covariate upset plot}
+input <- list(sex_subset$Pathway.name, HBV_covariate_subset$Pathway.name, HCV_covariate_subset$Pathway.name)
+
+names(input) <- c("all", "HBV", "HCV")
+
+upset(fromList(input), order.by= "freq", nsets=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Etiology Stratified with Sex as a Covariate Upset Plot.pdf", width = 12, height = 12)
+ upset(fromList(input), order.by= "freq", nsets=3, point.size = 3, line.size=2, text.scale= c(5,5,4.5,2.0,5,5))
+ dev.off()
+```
+```{r covariate shared etiology}
+shared_etiology_covariate <- sex_subset_HBV_covariate[which(sex_subset_HBV_covariate$Pathway.name %in% HCV_covariate_subset$Pathway.name), ]
+
+write.csv(shared_etiology, "~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/covariate_shared_etiology_pathways.csv")
+```
+
+```{r unique to all}
+unique_tumor <- sex_subset[-which(sex_subset$Pathway.name %in% HCV_covariate_subset$Pathway.name), ]
+
+#unique_tumor <- unique_tumor[-which(unique_tumor
+#$Pathway.name %in% HBV_covariate_subset$Pathway.name), ]
+
+```
+
+```{r unique to HBV and HCV}
+etiology_unique <- HBV_HCV_covariate[-which(HBV_HCV_covariate$Pathway.name %in% shared_etiology_covariate$Pathway.name), ]
+```
