@@ -1,0 +1,640 @@
+---
+title: "DEG Gene Box Plots"
+author: "Annika Jorgensen"
+date: '2022-09-02'
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **R Markdown**
+
+Title: "Box Plot Genes from Viral Etiology DEG Analysis"  
+Author: Annika Jorgensen  
+Date: 09/02/2022  
+Purpose: This document is for the author to create box plots for level of expression of genes taken from the Female HCV, Female HBV, Male HBV, and Female HBV. 
+
+### **Libraries**
+
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.   
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(psych)
+library(FSA)
+library(lattice)
+library(lsr)
+```
+
+
+## **Environment parameters**
+
+This next section of code is dedicated to the environmental parameters. Environmental parameters are a series of variables and other code that will help make the rest of the script be easier to make and run later on. 
+
+
+### **Working Directory** 
+
+A working directory is a code that iterates a file path on your computer th.t sets where the default location of any files that you read into R. Working directories work different in R files than R Markdowns. R Markdown files require directories to be defined at the end of each code chunk. Meaning from here on out you will see working directories being defined at the end of each code chunk. 
+```{r Working_Directory}
+setwd('~/Desktop/Research Projects/Liver Cancer Project')
+```
+
+
+### **Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by conversiting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+```
+
+
+
+### **Reading in Metadata**
+
+This chunk reads in the original salmon expression counts meta data. This data holds all of the expression counts from the tumor and tumor-adjacent samples. This data will be used to create box plots showing the expression of the gene in a variety of different samples.  
+```{r read_in_data}
+metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
+```
+
+The subsetting is making sure that the expression data is truly tied to the metadata by making expression counts to the metadata. Additionally, we are making sure the row names match the sample id, making sure the matrices of tumorAdjacentExpSubset and metadatasubset are aligned and we are adding an additional column called tumor where 0 means the sample is tumor adjacent and 1 means the sample is tumor 
+```{r subsetting}
+
+tumorAdjacentExpSubset <- tumorAdjacentExp[,colnames(tumorAdjacentExp) %in% metadata$sampleid]
+metadataSubset <- metadata[metadata$sampleid %in% colnames(tumorAdjacentExpSubset),]
+metadataSubset <- metadataSubset[match(colnames(tumorAdjacentExpSubset), metadataSubset$sampleid),]
+identical(colnames(tumorAdjacentExpSubset),metadataSubset$sampleid)
+rownames(metadataSubset) <- metadataSubset$sampleid
+metadataSubset$tumor <- as.numeric(grepl('tumor', metadataSubset$sampleid, ignore.case=T))
+```
+
+
+### **Box Plot Data Subsetting**
+
+This section is subsetting the datasets in order to show boxplots stratified by sex, etiology, and tumor tumor adjacent. This code chunk specifically subsetting by sex. The "which" command finds all samples that are marked "F" or "M" in the gender column of the metadatasubset file and then subsets those samples in the tumorAdjacentExpSubset file into the the "female_expression" or "male_expression" variable. 
+```{r data_for_boxplot_sex}
+
+female_dataset <- metadataSubset[ which((metadataSubset$Gender) == "F"), ]
+male_dataset <-  metadataSubset[ which((metadataSubset$Gender) == "M"), ]
+
+female_expression <- tumorAdjacentExp[,colnames(tumorAdjacentExpSubset) %in% female_dataset$sampleid]
+male_expression <- tumorAdjacentExp[,colnames(tumorAdjacentExpSubset) %in% male_dataset$sampleid]
+```
+
+This code chunk is specifically subsetting the data by etiology. The "which" command finds all samples that are marked "HBV" or "HCV" in the "Virus_Infection" column of the metadatasubset file and then subsets those samples in the tumorAdjacentExpSubset file into the "HBV_expression" and "HCV_expression" variable.
+```{r data_for_boxplot_etiology}
+HBV_dataset <- metadataSubset[ which((metadataSubset$Virus_infection) == "HBV"), ]
+HCV_dataset <- metadataSubset[ which((metadataSubset$Virus_infection) == "HCV"), ]
+
+HBV_expression <- tumorAdjacentExp[,colnames(tumorAdjacentExpSubset) %in% HBV_dataset$sampleid]
+HCV_expression <- tumorAdjacentExp[,colnames(tumorAdjacentExpSubset) %in% HCV_dataset$sampleid]
+```
+
+This code chunk is specfically subseting by tumor and tumor-adjacent tissue type. The "which" command finds all samples that are marked by a zero or a one in the tumor column of the metadatasubset file. The tumor column has tumor-adjacent samples marked as zero and a tumor sample marked as one. These samples are then subsetted in the tumorAdjacentExpSubset file and are inputted into the "tumor_expression" and "adjacent_expression variable. 
+```{r data_for_boxplot_tumor_tumor_adjacent}
+tumor_dataset <-  metadataSubset[ which((metadataSubset$tumor) == 1), ]
+adjacent_dataset <-  metadataSubset[ which((metadataSubset$tumor) == 0), ]
+
+tumor_expression <- tumorAdjacentExp[,colnames(tumorAdjacentExpSubset) %in% tumor_dataset$sampleid]
+adjacent_expression <- tumorAdjacentExp[,colnames(tumorAdjacentExpSubset) %in% adjacent_dataset$sampleid]
+```
+
+This code chunk is subsetting the sex-subsetted data by tumor. This is to create female tumor and male tumor datasets to create box plots with. The "which" command finds all samples that are marked by a zero or a one in the tumor column of the metadataSubset file. The tumor column has tumor-adjacent samples marked as zero and a tumor sample marked as one. These samples are then subsetted in the tumorAdjacentExpSubset file and are inputted into the "female_tumor_expression" and "male_tumor_expression variable. 
+```{r Sex_tumor_dataset}
+female_tumor_dataset <- female_dataset[ which((female_dataset$tumor) == 1), ]
+male_tumor_dataset <- male_dataset[ which((male_dataset$tumor) == 1), ]
+
+female_tumor_expression <- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% female_tumor_dataset$sampleid]
+male_tumor_expression <- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% male_tumor_dataset$sampleid]
+```
+
+This code chunk is subsetting the sex-subsetted data by tumor-adjacent. This is to create female tumor-adjacent and male tumor-adjacent datasets to create box plots with. The "which" command finds all samples that are marked by a zero or a one in the tumor column of the metadataSubset file. The tumor column has tumor-adjacent samples marked as zero and a tumor sample marked as one. These samples are then subsetted in the tumorAdjacentExpSubset file and are inputted into the "female_adjacent_expression" and "male_adjacent_expression" variable. 
+```{r Sex_adjacent_dataset}
+female_adjacent_dataset <- female_dataset[ which((female_dataset$tumor) == 0), ]
+male_adjacent_dataset <- male_dataset[ which((male_dataset$tumor) == 0), ]
+  
+female_adjacent_expression <- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% female_adjacent_dataset$sampleid]
+male_adjacent_expression <- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% male_adjacent_dataset$sampleid]
+```
+
+
+```{r Sex_tumor_HBV_dataset}
+female_tumor_HBV_dataset<- female_tumor_dataset[ which((female_tumor_dataset$Virus_infection) == "HBV"), ]
+male_tumor_HBV_dataset<- male_tumor_dataset[ which((male_tumor_dataset$Virus_infection) == "HBV"), ]
+
+female_tumor_HBV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% female_tumor_HBV_dataset$sampleid]
+male_tumor_HBV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% male_tumor_HBV_dataset$sampleid]
+```
+
+```{r Sex_tumor_HCV_dataset}
+female_tumor_HCV_dataset<- female_tumor_dataset[ which((female_tumor_dataset$Virus_infection) == "HCV"), ]
+male_tumor_HCV_dataset<- male_tumor_dataset[ which((male_tumor_dataset$Virus_infection) == "HCV"), ]
+
+female_tumor_HCV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% female_tumor_HCV_dataset$sampleid]
+male_tumor_HCV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% male_tumor_HCV_dataset$sampleid]
+```
+
+```{r Sex_adjacent_HBV_dataset}
+female_adjacent_HBV_dataset<- female_adjacent_dataset[ which((female_adjacent_dataset$Virus_infection) == "HBV"), ]
+male_adjacent_HBV_dataset<- male_adjacent_dataset[ which((male_adjacent_dataset$Virus_infection) == "HBV"), ]
+
+female_adjacent_HBV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% female_adjacent_HBV_dataset$sampleid]
+male_adjacent_HBV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% male_adjacent_HBV_dataset$sampleid]
+```
+
+```{r Sex_adjacent_HCV_dataset}
+female_adjacent_HCV_dataset<- female_adjacent_dataset[ which((female_adjacent_dataset$Virus_infection) == "HCV"), ]
+male_adjacent_HCV_dataset<- male_adjacent_dataset[ which((male_adjacent_dataset$Virus_infection) == "HCV"), ]
+
+female_adjacent_HCV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% female_adjacent_HCV_dataset$sampleid]
+male_adjacent_HCV_expression<- tumorAdjacentExpSubset[,colnames(tumorAdjacentExpSubset) %in% male_adjacent_HCV_dataset$sampleid]
+```
+
+##**Plots**
+This section is creating the boxplots with the data read in and subsetted above.
+
+### **Test Box Plot**
+The data variable takes the first row of the female_expression file and changes the file to all numerical values. The data variable is then plotted as a box plot with the gene (TSPAN 6 or ENSG00000000003.14) on the x axis and the expression levels on the y axis.
+```{r test_box_plot}
+data <- as.numeric(female_expression[1, ])
+boxplot(data, main= "Expression Levels of TSPAN6 in Female Samples", xlab= "Samples", ylab= "Expression Levels", horizontal= F)
+
+```
+
+
+### **MUC13 Box Plots**
+This section is dedicated to creating and outputting a boxplot for the expression levels of the MUC13 gene. 
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The MUC13data_0 variable has all of samples that express the MUC13 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MUC13data_1 is the same as the MUC13data_7 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MUC13data_2 is the same as the MUC13data_8 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MUC13data_3 is the same as the MUC13data_9 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+```{r box_plot_MUC13_PDF}
+
+MUC13data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000173702", rownames(female_tumor_HBV_expression)), ])
+MUC13data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000173702", rownames(female_adjacent_HBV_expression)), ])
+MUC13data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000173702", rownames(male_tumor_HBV_expression)), ])
+MUC13data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000173702", rownames(male_adjacent_HBV_expression)), ])
+MUC13data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(female_tumor_HCV_expression)), ])
+MUC13data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(male_adjacent_HCV_expression)), ])
+MUC13data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(male_tumor_HCV_expression)), ])
+MUC13data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(male_adjacent_HCV_expression)), ])
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/MUC13_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(MUC13data_0+0.01), log10(MUC13data_1+0.01), log10(MUC13data_2+0.01), log10(MUC13data_3+0.01), log10(MUC13data_4+0.01), log10(MUC13data_5+0.01),log10(MUC13data_6+0.01), log10(MUC13data_7+0.01), main= "Expression Levels of MUC13", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("F Tumor HBV", "Female Tumor-adj HBV", "M Tumor HBV", "Male Tumor-adj HBV", "F Tumor HCV", "F Tumor-adj HCV", "M Tumor HCV", "Male Tumor-adj HCV"), las=2)
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file. 
+```{r box_plot_MUC13_print}
+
+boxplot(log10(MUC13data_0+0.01), log10(MUC13data_1+0.01), log10(MUC13data_2+0.01), log10(MUC13data_3+0.01), log10(MUC13data_4+0.01), log10(MUC13data_5+0.01),log10(MUC13data_6+0.01), log10(MUC13data_7+0.01), main= "Expression Levels of MUC13", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("F Tumor HBV", "Female Tumor-adj HBV", "M Tumor HBV", "Male Tumor-adj HBV", "F Tumor HCV", "F Tumor-adj HCV", "M Tumor HCV", "Male Tumor-adj HCV"), las=2)
+
+#boxplot(log10(MUC13data_7), log10(MUC13data_8), log10(MUC13data_9), log10(MUC13data_10), ylim=c(0,3000), main= "Expression Levels of MUC13", xlab= "Female Tumor, Female Tumor-adjacent, Male Tumor, Male Tumor-adjacent Samples", ylab= "Expression Levels", horizontal= F)
+```
+
+### **MAGEA6 Box Plot**
+This section is dedicated to creating and outputting a boxplot for the expression levels of the MAGEA6 gene.
+
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The MAGEA6data_0 variable has all of samples that express the MAGEA6 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MAGEA6data_1 is the same as the MAGEA6data_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MAGEA6data_2 is the same as the MAGEA6data_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MAGEA6data_3 is the same as the MAGA6data_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+```{r box_plot_MAGEA6_PDF}
+MAGEA6data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000197172", rownames(female_tumor_HBV_expression)), ])
+MAGEA6data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000197172", rownames(female_adjacent_HBV_expression)), ])
+MAGEA6data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000197172", rownames(male_tumor_HBV_expression)), ])
+MAGEA6data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000197172", rownames(male_adjacent_HBV_expression)), ])
+MAGEA6data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(female_tumor_HCV_expression)), ])
+MAGEA6data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(male_adjacent_HCV_expression)), ])
+MAGEA6data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(male_tumor_HCV_expression)), ])
+MAGEA6data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000173702", rownames(male_adjacent_HCV_expression)), ])
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/MAGEA6_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(MAGEA6data_0+0.01), log10(MAGEA6data_1+0.01), log10(MAGEA6data_2+0.01), log10(MAGEA6data_3+0.01), log10(MAGEA6data_4+0.01), log10(MAGEA6data_5+0.01), log10(MAGEA6data_6+0.01), log10(MAGEA6data_7+0.01), main= "Expression Levels of MAGEA6", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_MAGEA6_rmd}
+boxplot(log10(MAGEA6data_0+0.01), log10(MAGEA6data_1+0.01), log10(MAGEA6data_2+0.01), log10(MAGEA6data_3+0.01), log10(MAGEA6data_4+0.01), log10(MAGEA6data_5+0.01), log10(MAGEA6data_6+0.01), log10(MAGEA6data_7+0.01), main= "Expression Levels of MAGEA6", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor adjacent HCV"))
+```
+
+### **CTAG2 Box Plot**
+This section is dedicated to creating and outputting a boxplot for the expression levels of the CTAG2 gene.
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The CTAG2data_0 variable has all of samples that express the CTAG2 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+CTAG2data_1 is the same as the CTAG2data_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+CTAG2data_2 is the same as the CTAG2data_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+CTAG2data_3 is the same as the CTAG2data_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+```{r box_plot_CTAG2_PDF}
+CTAG2data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000126890", rownames(female_tumor_HBV_expression)), ])
+CTAG2data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000126890", rownames(female_adjacent_HBV_expression)), ])
+CTAG2data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000126890", rownames(male_tumor_HBV_expression)), ])
+CTAG2data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000126890", rownames(male_adjacent_HBV_expression)), ])
+CTAG2data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000126890", rownames(female_tumor_HCV_expression)), ])
+CTAG2data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000126890", rownames(female_adjacent_HCV_expression)), ])
+CTAG2data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000126890", rownames(male_tumor_HCV_expression)), ])
+CTAG2data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000126890", rownames(male_adjacent_HCV_expression)), ])
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/CTAG2_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(CTAG2data_0+0.01), log10(CTAG2data_1+0.01), log10(CTAG2data_2+0.01), log10(CTAG2data_3+0.01), log10(CTAG2data_4+0.01), log10(CTAG2data_5+0.01), log10(CTAG2data_6+0.01), log10(CTAG2data_7+0.01), main= "Expression Levels of CTAG2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_CTAG2_Rmd}
+boxplot(log10(CTAG2data_0+0.01), log10(CTAG2data_1+0.01), log10(CTAG2data_2+0.01), log10(CTAG2data_3+0.01), log10(CTAG2data_4+0.01), log10(CTAG2data_5+0.01), log10(CTAG2data_6+0.01), log10(CTAG2data_7+0.01), main= "Expression Levels of CTAG2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+### **EEF1A2 Box Plot**
+This section is dedicated to creating and outputting a boxplot for the expression levels of the EEF1A2 gene.
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The EEF1A2_data_0 variable has all of samples that express the EEF1A2 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+EEF1A2data_1 is the same as the EEF1A2data_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+EEF1A2data_2 is the same as the EEF1A2data_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+EEF1A2data_3 is the same as the EEF1A2data_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+```{r box_plot_EEF1A2_PDF}
+EEF1A2data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000101210", rownames(female_tumor_HBV_expression)), ])
+EEF1A2data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000101210", rownames(female_adjacent_HBV_expression)), ])
+EEF1A2data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000101210", rownames(male_tumor_HBV_expression)), ])
+EEF1A2data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000101210", rownames(male_adjacent_HBV_expression)), ])
+EEF1A2data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000101210", rownames(female_tumor_HCV_expression)), ])
+EEF1A2data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000101210", rownames(female_adjacent_HCV_expression)), ])
+EEF1A2data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000101210", rownames(male_tumor_HCV_expression)), ])
+EEF1A2data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000101210", rownames(male_adjacent_HCV_expression)), ])
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/EEF1A2_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(EEF1A2data_0+0.01), log10(EEF1A2data_1+0.01), log10(EEF1A2data_2+0.01), log10(EEF1A2data_3+0.01), log10(EEF1A2data_4+0.01), log10(EEF1A2data_5+0.01), log10(EEF1A2data_6+0.01), log10(EEF1A2data_7+0.01), main= "Expression Levels of EEF1A2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_EEF1A2_Rmd}
+boxplot(log10(EEF1A2data_0+0.01), log10(EEF1A2data_1+0.01), log10(EEF1A2data_2+0.01), log10(EEF1A2data_3+0.01), log10(EEF1A2data_4+0.01), log10(EEF1A2data_5+0.01), log10(EEF1A2data_6+0.01), log10(EEF1A2data_7+0.01), main= "Expression Levels of EEF1A2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+###**CDHR2 Box Plot**
+
+This section is dedicated to creating and outputting a boxplot for the expression levels of the CDHR2 gene.
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The CDHR2_data_0 variable has all of samples that express the CDHR2 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+CDHR2data_1 is the same as the CDHR2data_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+CDHR2data_2 is the same as the CDHR2data_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+CDHR2data_3 is the same as the CDHR2data_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+```{r box_plot_CDHR2_PDF}
+CDHR2data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000074276", rownames(female_tumor_HBV_expression)), ])
+CDHR2data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000074276", rownames(female_adjacent_HBV_expression)), ])
+CDHR2data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000074276", rownames(male_tumor_HBV_expression)), ])
+CDHR2data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000074276", rownames(male_adjacent_HBV_expression)), ])
+CDHR2data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000074276", rownames(female_tumor_HCV_expression)), ])
+CDHR2data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000074276", rownames(female_adjacent_HCV_expression)), ])
+CDHR2data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000074276", rownames(male_tumor_HCV_expression)), ])
+CDHR2data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000074276", rownames(male_adjacent_HCV_expression)), ])
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/CDHR2_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(CDHR2data_0+0.01), log10(CDHR2data_1+0.01), log10(CDHR2data_2+0.01), log10(CDHR2data_3+0.01), log10(CDHR2data_4+0.01), log10(CDHR2data_5+0.01), log10(CDHR2data_6+0.01), log10(CDHR2data_7+0.01), main= "Expression Levels of CDHR2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_CDHR2_Rmd}
+boxplot(log10(CDHR2data_0+0.01), log10(CDHR2data_1+0.01), log10(CDHR2data_2+0.01), log10(CDHR2data_3+0.01), log10(CDHR2data_4+0.01), log10(CDHR2data_5+0.01), log10(CDHR2data_6+0.01), log10(CDHR2data_7+0.01), main= "Expression Levels of CDHR2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+###**IGF2 Box Plot**
+
+This section is dedicated to creating and outputting a boxplot for  expression levels of the IGF2 gene.
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The IGF2_data_0 variable has all of samples that express the IGF2 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+IGF2data_1 is the same as the IGF2data_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+IGF2data_2 is the same as the IGF2data_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+IGF2data_3 is the same as the IGF2data_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+```{r box_plot_IGF2_PDF}
+IGF2data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000167244", rownames(female_tumor_HBV_expression)), ])
+IGF2data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000167244", rownames(female_adjacent_HBV_expression)), ])
+IGF2data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000167244", rownames(male_tumor_HBV_expression)), ])
+IGF2data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000167244", rownames(male_adjacent_HBV_expression)), ])
+IGF2data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000167244", rownames(female_tumor_HCV_expression)), ])
+IGF2data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000167244", rownames(female_adjacent_HCV_expression)), ])
+IGF2data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000167244", rownames(male_tumor_HCV_expression)), ])
+IGF2data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000167244", rownames(male_adjacent_HCV_expression)), ])
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/IGF2_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(IGF2data_0+0.01), log10(IGF2data_1+0.01), log10(IGF2data_2+0.01), log10(IGF2data_3+0.01), log10(IGF2data_4+0.01), log10(IGF2data_5+0.01), log10(IGF2data_6+0.01), log10(IGF2data_7+0.01), main= "Expression Levels of IGF2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_IGF2_Rmd}
+boxplot(log10(IGF2data_0+0.01), log10(IGF2data_1+0.01), log10(IGF2data_2+0.01), log10(IGF2data_3+0.01), log10(IGF2data_4+0.01), log10(IGF2data_5+0.01), log10(IGF2data_6+0.01), log10(IGF2data_7+0.01), main= "Expression Levels of IGF2", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+###**H19 Box Plot**
+
+This section is dedicated to creating and outputting a boxplot for the expression levels of the H19 gene.
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The H19_data_0 variable has all of samples that express the H19 gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+H19data_1 is the same as the H19data_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+H19data_2 is the same as the H19data_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+H19data_3 is the same as the H19data_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+
+```{r box_plot_H19_PDF}
+H19data_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000130600", rownames(female_tumor_HBV_expression)), ])
+H19data_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000130600", rownames(female_adjacent_HBV_expression)), ])
+H19data_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000130600", rownames(male_tumor_HBV_expression)), ])
+H19data_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000130600", rownames(male_adjacent_HBV_expression)), ])
+H19data_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000130600", rownames(female_tumor_HCV_expression)), ])
+H19data_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000130600", rownames(female_adjacent_HCV_expression)), ])
+H19data_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000130600", rownames(male_tumor_HCV_expression)), ])
+H19data_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000130600", rownames(male_adjacent_HCV_expression)), ])
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/H19_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(H19data_0+0.01), log10(H19data_1+0.01), log10(H19data_2+0.01), log10(H19data_3+0.01), log10(H19data_4+0.01), log10(H19data_5+0.01), log10(H19data_6+0.01), log10(H19data_7+0.01), main= "Expression Levels of H19", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_H19_Rmd}
+boxplot(log10(H19data_0+0.01), log10(H19data_1+0.01), log10(H19data_2+0.01), log10(H19data_3+0.01), log10(H19data_4+0.01), log10(H19data_5+0.01), log10(H19data_6+0.01), log10(H19data_7+0.01), main= "Expression Levels of H19", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+###**MEP1A Box Plot**
+
+This section is dedicated to creating and outputting a boxplot for the expression levels of the MEP1A gene.
+
+This box plot has four categories: female tumor, female tumor-adjacent, male tumor, male tumor-adjacent on the same plot. The MEP1A_data_0 variable has all of samples that express the MEP1A gene in female tumor samples. The grep function was used to retrieve all of the rows in the female_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MEP1A_1 is the same as the MEP1Adata_0 except that it is dealing with the female tumor-adjacent samples. The grep function was used to retrieve all of the rows in the female_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MEP1Adata_2 is the same as the MEP1Adata_1 except that it is dealing with the male tumor samples. The grep function was used to retrieve all of the rows in the male_tumor_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+MEP1Adata_3 is the same as the MEP1Adata_2 except that it is dealing with the male tumor-adjacent samples. The grep function was used to retrieve all of the rows in the male_adjacent_expression file that start with the ensembl gene version. The variable is then changed to report all numeric values.
+
+```{r box_plot_MEP1A_PDF}
+MEP1Adata_0 <- as.numeric(female_tumor_HBV_expression[ grep(pattern="^ENSG00000112818", rownames(female_tumor_HBV_expression)), ])
+MEP1Adata_1 <- as.numeric(female_adjacent_HBV_expression[ grep(pattern="^ENSG00000112818", rownames(female_adjacent_HBV_expression)), ])
+MEP1Adata_2 <- as.numeric(male_tumor_HBV_expression[ grep(pattern="^ENSG00000112818", rownames(male_tumor_HBV_expression)), ])
+MEP1Adata_3 <- as.numeric(male_adjacent_HBV_expression[ grep(pattern="^ENSG00000112818", rownames(male_adjacent_HBV_expression)), ])
+MEP1Adata_4 <- as.numeric(female_tumor_HCV_expression[ grep(pattern="^ENSG00000112818", rownames(female_tumor_HCV_expression)), ])
+MEP1Adata_5 <- as.numeric(female_adjacent_HCV_expression[ grep(pattern="^ENSG00000112818", rownames(female_adjacent_HCV_expression)), ])
+MEP1Adata_6 <- as.numeric(male_tumor_HCV_expression[ grep(pattern="^ENSG00000112818", rownames(male_tumor_HCV_expression)), ])
+MEP1Adata_7 <- as.numeric(male_adjacent_HCV_expression[ grep(pattern="^ENSG00000112818", rownames(male_adjacent_HCV_expression)), ])
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Boxplots/MEP1A_expression_boxplot.pdf", width=12, height=12)
+boxplot(log10(MEP1Adata_0+0.01), log10(MEP1Adata_1+0.01), log10(MEP1Adata_2+0.01), log10(MEP1Adata_3+0.01), log10(MEP1Adata_4+0.01), log10(MEP1Adata_5+0.01), log10(MEP1Adata_6+0.01), log10(MEP1Adata_7+0.01), main= "Expression Levels of MEP1A", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+The box plot is the same as up above this chunk is just printing it out to the RMD file.
+```{r box_plot_MEP1A_Rmd}
+boxplot(log10(MEP1Adata_0+0.01), log10(MEP1Adata_1+0.01), log10(MEP1Adata_2+0.01), log10(MEP1Adata_3+0.01), log10(MEP1Adata_4+0.01), log10(MEP1Adata_5+0.01), log10(MEP1Adata_6+0.01), log10(MEP1Adata_7+0.01), main= "Expression Levels of MEP1A", xlab= "Samples", ylab= "Expression Levels", horizontal= F, names= c("Female Tumor HBV", "Female Tumor-adjacent HBV", "Male Tumor HBV", "Male Tumor-adjacent HBV", "Female Tumor HCV", "Female Tumor-adjacent HCV", "Male Tumor HCV", "Male Tumor-adjacent HCV"))
+```
+
+## **Violin Plot**
+
+```{r Violin MUC13 Plot}
+
+group1 <- matrix(c("HBV Female Tumor"), nrow=length(MUC13data_0))
+group2 <- matrix(c("HBV Female Tumor Adj."), nrow=length(MUC13data_1))
+group3 <- matrix(c("HBV Male Tumor"), nrow=length(MUC13data_2))
+group4 <- matrix(c("HBV Male Tumor Adj."), nrow=length(MUC13data_3))
+group5 <- matrix(c("HCV Female Tumor"), nrow=length(MUC13data_4))
+group6 <- matrix(c("HCV Female Tumor Adj."), nrow=length(MUC13data_5))
+group7 <- matrix(c("HCV Male Tumor"), nrow=length(MUC13data_6))
+group8 <- matrix(c("HCV Male Tumor Adj."), nrow=length(MUC13data_7))
+
+col1 <- matrix(c("red"), nrow=length(MUC13data_0))
+col2 <- matrix(c("lightred"), nrow=length(MUC13data_1))
+col3 <- matrix(c("blue"), nrow=length(MUC13data_2))
+col4 <- matrix(c("lightblue"), nrow=length(MUC13data_3))
+col5 <- matrix(c("red"), nrow=length(MUC13data_4))
+col6 <- matrix(c("lighred"), nrow=length(MUC13data_5))
+col7 <- matrix(c("blue"), nrow=length(MUC13data_6))
+col8 <- matrix(c("lightblue"), nrow=length(MUC13data_7))
+
+MUC13_data <- data.frame(group = c(group1, group2, group3, group4, group5, group6, group7, group8), 
+                         Expression=c(MUC13data_0,MUC13data_1, MUC13data_2, MUC13data_3, MUC13data_4,MUC13data_5, MUC13data_6, MUC13data_7),
+                         color = c(col1, col2, col3, col4, col5, col6, col7, col8))
+
+
+colnames(MUC13_data) <- c("Group", "Expression", "color")
+
+MUC13_data$Group<- factor(MUC13_data$Group, c("HBV Female Tumor Adj.", "HBV Female Tumor", "HBV Male Tumor Adj.", "HBV Male Tumor", "HCV Female Tumor Adj.", "HCV Female Tumor", "HCV Male Tumor Adj.", "HCV Male Tumor"))
+
+MUC13p<-ggplot(MUC13_data, aes(x=Group, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ scale_fill_brewer(palette="Greys") + theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/MUC13_expression_violin.pdf", width=12, height=12)
+MUC13p
+```
+
+```{r MUC13 print}
+MUC13p
+```
+
+```{r Violin MAGEA6 Violin Plot}
+group1 <- matrix(c("HBV Female Tumor"), nrow=length(MAGEA6data_0))
+group2 <- matrix(c("HBV Female Tumor Adj."), nrow=length(MAGEA6data_1))
+group3 <- matrix(c("HBV Male Tumor"), nrow=length(MAGEA6data_2))
+group4 <- matrix(c("HBV Male Tumor Adj."), nrow=length(MAGEA6data_3))
+group5 <- matrix(c("HCV Female Tumor"), nrow=length(MAGEA6data_4))
+group6 <- matrix(c("HCV Female Tumor Adj."), nrow=length(MAGEA6data_5))
+group7 <- matrix(c("HCV Male Tumor"), nrow=length(MAGEA6data_6))
+group8 <- matrix(c("HCV Male Tumor Adj."), nrow=length(MAGEA6data_7))
+
+col1 <- matrix(c("red"), nrow=length(MAGEA6data_0))
+col2 <- matrix(c("lightred"), nrow=length(MAGEA6data_1))
+col3 <- matrix(c("blue"), nrow=length(MAGEA6data_2))
+col4 <- matrix(c("lightblue"), nrow=length(MAGEA6data_3))
+col5 <- matrix(c("red"), nrow=length(MAGEA6data_4))
+col6 <- matrix(c("lighred"), nrow=length(MAGEA6data_5))
+col7 <- matrix(c("blue"), nrow=length(MAGEA6data_6))
+col8 <- matrix(c("lightblue"), nrow=length(MAGEA6data_7))
+
+MAGEA6_data <- data.frame(group = c(group1, group2, group3, group4, group5, group6, group7, group8), 
+                         Expression=c(MAGEA6data_0, MAGEA6data_1, MAGEA6data_2, MAGEA6data_3, MAGEA6data_4, MAGEA6data_5, MAGEA6data_6, MAGEA6data_7),
+                         color = c(col1, col2, col3, col4, col5, col6, col7, col8) )
+
+
+colnames(MAGEA6_data) <- c("Group", "Expression", "color")
+
+MAGEA6_data$Group<- factor(MAGEA6_data$Group, c("HBV Female Tumor Adj.", "HBV Female Tumor", "HBV Male Tumor Adj.", "HBV Male Tumor", "HCV Female Tumor Adj.", "HCV Female Tumor", "HCV Male Tumor Adj.", "HCV Male Tumor"))
+
+MAGEA6p<-ggplot(MAGEA6_data, aes(x=Group, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ scale_fill_brewer(palette="Greys") + theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/MAGEA6_expression_violin.pdf", width=12, height=12)
+MAGEA6p
+dev.off()
+```
+
+```{r MAGEA6p}
+MAGEA6p
+```
+
+```{r H19 Violin Plot}
+group1 <- matrix(c("HBV Female Tumor"), nrow=length(H19data_0))
+group2 <- matrix(c("HBV Female Tumor Adj."), nrow=length(H19data_1))
+group3 <- matrix(c("HBV Male Tumor"), nrow=length(H19data_2))
+group4 <- matrix(c("HBV Male Tumor Adj."), nrow=length(H19data_3))
+group5 <- matrix(c("HCV Female Tumor"), nrow=length(H19data_4))
+group6 <- matrix(c("HCV Female Tumor Adj."), nrow=length(H19data_5))
+group7 <- matrix(c("HCV Male Tumor"), nrow=length(H19data_6))
+group8 <- matrix(c("HCV Male Tumor Adj."), nrow=length(H19data_7))
+
+col1 <- matrix(c("red"), nrow=length(H19data_0))
+col2 <- matrix(c("lightred"), nrow=length(H19data_1))
+col3 <- matrix(c("blue"), nrow=length(H19data_2))
+col4 <- matrix(c("lightblue"), nrow=length(H19data_3))
+col5 <- matrix(c("red"), nrow=length(H19data_4))
+col6 <- matrix(c("lighred"), nrow=length(H19data_5))
+col7 <- matrix(c("blue"), nrow=length(H19data_6))
+col8 <- matrix(c("lightblue"), nrow=length(H19data_7))
+
+H19_data <- data.frame(group = c(group1, group2, group3, group4, group5, group6, group7, group8), 
+                         Expression=c(H19data_0, H19data_1, H19data_2, H19data_3, H19data_4, H19data_5, H19data_6, H19data_7),
+                         color = c(col1, col2, col3, col4, col5, col6, col7, col8) )
+
+
+colnames(H19_data) <- c("Group", "Expression", "color")
+
+H19_data$Group<- factor(H19_data$Group, c("HBV Female Tumor Adj.", "HBV Female Tumor", "HBV Male Tumor Adj.", "HBV Male Tumor", "HCV Female Tumor Adj.", "HCV Female Tumor", "HCV Male Tumor Adj.", "HCV Male Tumor"))
+
+H19p<-ggplot(H19_data, aes(x=Group, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ scale_fill_brewer(palette="Greys") + theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/H19_expression_violin.pdf", width=12, height=12)
+H19p
+```
+
+```{r H19p}
+H19p
+```
+
+```{r Violin CDHR2 Plot}
+group1 <- matrix(c("HBV Female Tumor"), nrow=length(CDHR2data_0))
+group2 <- matrix(c("HBV Female Tumor Adj."), nrow=length(CDHR2data_1))
+group3 <- matrix(c("HBV Male Tumor"), nrow=length(CDHR2data_2))
+group4 <- matrix(c("HBV Male Tumor Adj."), nrow=length(CDHR2data_3))
+group5 <- matrix(c("HCV Female Tumor"), nrow=length(CDHR2data_4))
+group6 <- matrix(c("HCV Female Tumor Adj."), nrow=length(CDHR2data_5))
+group7 <- matrix(c("HCV Male Tumor"), nrow=length(CDHR2data_6))
+group8 <- matrix(c("HCV Male Tumor Adj."), nrow=length(CDHR2data_7))
+
+col1 <- matrix(c("red"), nrow=length(CDHR2data_0))
+col2 <- matrix(c("lightred"), nrow=length(CDHR2data_1))
+col3 <- matrix(c("blue"), nrow=length(CDHR2data_2))
+col4 <- matrix(c("lightblue"), nrow=length(CDHR2data_3))
+col5 <- matrix(c("red"), nrow=length(CDHR2data_4))
+col6 <- matrix(c("lighred"), nrow=length(CDHR2data_5))
+col7 <- matrix(c("blue"), nrow=length(CDHR2data_6))
+col8 <- matrix(c("lightblue"), nrow=length(CDHR2data_7))
+
+CDHR2_data <- data.frame(group = c(group1, group2, group3, group4, group5, group6, group7, group8), 
+                         Expression=c(CDHR2data_0, CDHR2data_1, CDHR2data_2, CDHR2data_3, CDHR2data_4, CDHR2data_5, CDHR2data_6, CDHR2data_7),
+                         color = c(col1, col2, col3, col4, col5, col6, col7, col8) )
+
+
+colnames(CDHR2_data) <- c("Group", "Expression", "color")
+
+CDHR2_data$Group<- factor(CDHR2_data$Group, c("HBV Female Tumor Adj.", "HBV Female Tumor", "HBV Male Tumor Adj.", "HBV Male Tumor", "HCV Female Tumor Adj.", "HCV Female Tumor", "HCV Male Tumor Adj.", "HCV Male Tumor"))
+
+CDHR2p<-ggplot(CDHR2_data, aes(x=Group, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ scale_fill_brewer(palette="Greys") + theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/CDHR2_expression_violin.pdf", width=12, height=12)
+CDHR2p
+```
+
+```{r CDHR2p}
+CDHR2p
+```
+
+```{r Violine IGF2}
+group1 <- matrix(c("HBV Female Tumor"), nrow=length(IGF2data_0))
+group2 <- matrix(c("HBV Female Tumor Adj."), nrow=length(IGF2data_1))
+group3 <- matrix(c("HBV Male Tumor"), nrow=length(IGF2data_2))
+group4 <- matrix(c("HBV Male Tumor Adj."), nrow=length(IGF2data_3))
+group5 <- matrix(c("HCV Female Tumor"), nrow=length(IGF2data_4))
+group6 <- matrix(c("HCV Female Tumor Adj."), nrow=length(IGF2data_5))
+group7 <- matrix(c("HCV Male Tumor"), nrow=length(IGF2data_6))
+group8 <- matrix(c("HCV Male Tumor Adj."), nrow=length(IGF2data_7))
+
+col1 <- matrix(c("red"), nrow=length(IGF2data_0))
+col2 <- matrix(c("lightred"), nrow=length(IGF2data_1))
+col3 <- matrix(c("blue"), nrow=length(IGF2data_2))
+col4 <- matrix(c("lightblue"), nrow=length(IGF2data_3))
+col5 <- matrix(c("red"), nrow=length(IGF2data_4))
+col6 <- matrix(c("lighred"), nrow=length(IGF2data_5))
+col7 <- matrix(c("blue"), nrow=length(IGF2data_6))
+col8 <- matrix(c("lightblue"), nrow=length(IGF2data_7))
+
+IGF2_data <- data.frame(group = c(group1, group2, group3, group4, group5, group6, group7, group8), 
+                         Expression=c(IGF2data_0, IGF2data_1, IGF2data_2, IGF2data_3, IGF2data_4, IGF2data_5, IGF2data_6, IGF2data_7),
+                         color = c(col1, col2, col3, col4, col5, col6, col7, col8) )
+
+
+colnames(IGF2_data) <- c("Group", "Expression", "color")
+
+IGF2_data$Group<- factor(IGF2_data$Group, c("HBV Female Tumor Adj.", "HBV Female Tumor", "HBV Male Tumor Adj.", "HBV Male Tumor", "HCV Female Tumor Adj.", "HCV Female Tumor", "HCV Male Tumor Adj.", "HCV Male Tumor"))
+
+IGF2p<-ggplot(IGF2_data, aes(x=Group, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ scale_fill_brewer(palette="Greys") + theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/IGF2_expression_violin.pdf", width=12, height=12)
+IGF2p
+dev.off()
+```
+
+```{r IGF2p}
+
+IGF2p
+```

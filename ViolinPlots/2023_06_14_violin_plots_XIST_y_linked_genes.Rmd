@@ -1,0 +1,842 @@
+---
+title: "2023_06_14_Violin_XIST_y_linked_genes"
+author: "Annika Jorgensen"
+date: "2023-06-15"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **R Markdown**
+
+Title: Violin Plots XIST and y-linked genes 
+Author: Annika Jorgensen  
+Date: 06/14/2022
+Purpose: The purpose of this document is to take the normalized ICGC data and create violin plots to double check the sex of the various outlier samples that we think have been mislabeled. The genes we will be performing this analysis on are. 
+
+1) XIST
+2) DDX3Y
+3) 
+4)
+
+
+
+### **Libraries**
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.  
+```{r Libraries, include=FALSE}
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(gridExtra)
+
+setwd('~/Desktop/Research Projects/Liver Cancer Project')
+```
+
+**Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by converting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+```
+
+**Read in data**
+
+This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
+```{r Reading_in_data}
+metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project//Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
+
+# Importing gene annotations
+#genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
+genes <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- data.frame(genes)
+tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
+genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
+# Calculating gene length, this is needed for calculating the FPKM values
+genes$length <- with(genes, end - start)
+
+# Removing RK023 due to low quality
+metadata <- metadata[!(metadata$ID == "RK023") , ]
+
+#Removing both and NBNC samples
+metadata <- metadata[!(metadata$Virus_infection == "NBNC"), ]
+metadata <- metadata[!(metadata$Virus_infection == "both"), ]
+
+# Subsetting and ordering metadata to match the count matrix
+tumorAdjacentExpSubset <- tumorAdjacentExp[,colnames(tumorAdjacentExp) %in% metadata$sampleid]
+metadataSubset <- metadata[metadata$sampleid %in% colnames(tumorAdjacentExpSubset),]
+metadataSubset <- metadataSubset[match(colnames(tumorAdjacentExpSubset), metadataSubset$sampleid),]
+rownames(metadataSubset) <- metadataSubset$sampleid
+
+# Adding tissue type, converting categorical variables to factors
+metadataSubset$tumor <- as.numeric(grepl('tumor', metadataSubset$sampleid, ignore.case=T))
+metadataSubset$gender_tissue <- paste(metadataSubset$Gender, metadataSubset$tumor, sep="_")
+metadataSubset$gender_tissue_viral <- paste(metadataSubset$gender_tissue, metadataSubset$Virus_infection, sep="_")
+metadataSubset$library_type <- metadataSubset$strandedness
+metadataSubset$library_type <- factor(metadataSubset$library_type)
+metadataSubset$tumor <- factor(metadataSubset$tumor)
+metadataSubset$Ta <- factor(metadataSubset$Ta)
+metadataSubset$Portal_vein_invasion <- factor(metadataSubset$Portal_vein_invasion)
+metadataSubset$Hepatic_vein_invasion <- factor(metadataSubset$Hepatic_vein_invasion)
+metadataSubset$Bile_duct_invasion <- factor(metadataSubset$Bile_duct_invasion)
+metadataSubset$Liver_fibrosisc <- factor(metadataSubset$Liver_fibrosisc)
+metadataSubset$Prognosis <- factor(metadataSubset$Prognosis)
+```
+
+```{r DGE Object}
+# Creating the DGEList object
+dge <- DGEList(counts=tumorAdjacentExpSubset, genes=genes)
+colnames(dge) <- colnames(tumorAdjacentExpSubset)
+dge$samples$sex <- metadataSubset$Gender
+dge$samples$viral <- factor(metadataSubset$Virus_infection)
+dge$samples$ID <- metadataSubset$ID
+dge$samples$tumor <- metadataSubset$tumor
+dge$samples$gender_tissue <- metadataSubset$gender_tissue
+dge$samples$gender_tissue_viral <- metadataSubset$gender_tissue_viral
+dge$samples$library_type <- metadataSubset$library_type
+dge$samples$edmonson_grade <- metadataSubset$Edmondson_grade
+dge$samples$Ta <- metadataSubset$Ta
+dge$samples$survival <- metadataSubset$Overall_survival_month
+
+# Inspecting the N of samples in each group
+table(dge$samples$gender_tissue_viral)
+```
+
+```{r fpkm}
+# ======================================
+# Filtering expression data
+# ======================================
+
+# Keeping genes that have a mean FPKM of at least 0.5 in at least one of the
+# groups under investigation and at least 6 reads in at least 10 samples
+fpkm <- rpkm(dge, gene.length=dge$genes$length)
+
+M_1_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_1_HBV")],1,mean,na.rm=TRUE)
+M_0_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_0_HBV")],1,mean,na.rm=TRUE)
+M_1_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_1_HCV")],1,mean,na.rm=TRUE)
+M_0_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_0_HCV")],1,mean,na.rm=TRUE)
+
+F_1_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_1_HBV")],1,mean,na.rm=TRUE)
+F_0_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_0_HBV")],1,mean,na.rm=TRUE)
+F_1_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_1_HCV")],1,mean,na.rm=TRUE)
+F_0_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_0_HCV")],1,mean,na.rm=TRUE)
+
+keep <- (M_1_HBV_mean_fpkm > 0.5 | M_0_HBV_mean_fpkm > 0.5 | 
+           M_1_HCV_mean_fpkm > 0.5 | M_0_HCV_mean_fpkm > 0.5 |
+           F_1_HBV_mean_fpkm > 0.5 | F_0_HBV_mean_fpkm > 0.5 |
+           F_1_HCV_mean_fpkm > 0.5 | F_0_HCV_mean_fpkm > 0.5 )
+
+dge <- dge[keep,,keep.lib.sizes=FALSE]
+dge <- calcNormFactors(dge, method="TMM")
+keep <- rowSums(dge$counts > 6) >= 10
+dge <- dge[keep,,keep.lib.size=FALSE]
+dge <- calcNormFactors(dge, method="TMM")
+
+# N of genes retained after filtering
+dim(dge$genes)
+```
+
+```{r Voom}
+# ===================================== ======================
+# ===========================================================
+# Analysis of all tumor vs. tumor-adjacent regardless of sex
+# ===========================================================
+# ===========================================================
+
+# Creating a new design model matrix with the variable of interest and the
+# library type
+design <- model.matrix(~0+dge$samples$tumor+dge$samples$library_type+dge$samples$Ta)
+colnames(design) <- gsub("dge\\$samples\\$tumor", "tumor", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$library_typeunstranded", "library_type", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta2", "Ta2", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta3", "Ta3", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta4", "Ta4", colnames(design))
+head(design)
+
+# Running voom again with the new design matrix.
+v <- voomWithQualityWeights(dge, design, plot=TRUE)
+```
+```{r ouput Voom}
+#pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Voom_output_violin_plots.csv")
+#v <- voomWithQualityWeights(dge, design, plot=TRUE)
+#dev.off()
+```
+
+```{r Library Type Correction}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/vCorrectLibtype.csv")
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/Library Type Correction.pdf")
+mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$gender_tissue=="M_1",
+                          "#FFC20A",
+                          ifelse(v$targets$gender_tissue=="M_0",
+                                 "#E66100",
+                                 ifelse(v$targets$gender_tissue=="F_1",
+                                        "#40B0A6", "#006CD1"))),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+
+mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$gender_tissue=="M_1",
+                          "#FFC20A",
+                          ifelse(v$targets$gender_tissue=="M_0",
+                                 "#E66100",
+                                 ifelse(v$targets$gender_tissue=="F_1",
+                                        "#40B0A6", "#006CD1"))),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+```
+For XIST expression plot 
+----------------------------
+Reporting 87 samples female (there are supposed to be 93)
+Reporting 203 samples male (suppose to be 261)
+```{r XIST expression plot}
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+
+vv<- as.data.frame(v$targets$ID)
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+XIST_expression <- vCorrectLibtype[grep(pattern="^ENSG00000229807", rownames(vCorrectLibtype)), ]
+XIST_expression <- t(XIST_expression)
+XIST_expression<- as.data.frame(XIST_expression)
+
+#vCorrectLibtype <- t(vCorrectLibtype)
+gender <- metadataSubset$Gender
+
+gender<- as.data.frame(gender)
+colnames(gender) <- c("Sex")
+Violin_data <-cbind(gender,XIST_expression)
+Violin_data <- as.data.frame(Violin_data)
+colnames(Violin_data) <- c("Sex", "Expression")
+
+XIST_expression_males <-Violin_data[which(Violin_data$Sex=="M"),] 
+XIST_expression_females <-Violin_data[which(Violin_data$Sex=="F"),] 
+
+#Violin_data <- as.data.frame(t(Violin_data))
+#XIST_RK135_tumor_XX <- Violin_data$
+XIST_expression_outlier1<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-tumor-XX"),]))
+XIST_expression_outlier2<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-tumor-XX"),]))
+XIST_expression_outlier3<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-adjacent-XY"),]))
+XIST_expression_outlier4<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-adjacent-XY"),]))
+
+XIST_expression_outlier5<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-adjacent-XX"),]))
+XIST_expression_outlier6<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-adjacent-XX"),]))
+XIST_expression_outlier7<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-tumor-XY"),]))
+XIST_expression_outlier8<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-tumor-XY"),]))
+XIST_expression_outlier9<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-tumor-XY"),]))
+XIST_expression_outlier10<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-adjacent-XY"),]))
+XIST_expression_outlier11<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-tumor-XX"),]))
+XIST_expression_outlier12<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-adjacent-XX"),]))
+XIST_expression_outlier13<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-tumor-XX"),]))
+XIST_expression_outlier14<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-adjacent-XX"),]))
+XIST_expression_outlier15<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-tumor-XX"),]))
+XIST_expression_outlier16<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-adjacent-XX"),]))
+XIST_expression_outlier17<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK096-tumor-XY"),]))
+
+
+XIST_outliers <- as.data.frame(t(cbind(XIST_expression_outlier1,XIST_expression_outlier2,XIST_expression_outlier3,XIST_expression_outlier4,XIST_expression_outlier5,XIST_expression_outlier6,XIST_expression_outlier7, XIST_expression_outlier8)))
+
+Violin_data$Names = NA
+#Violin_data[row.names(Violin_data) %in% rownames(XIST_outliers),3] <- row.names(XIST_outliers)
+
+Violin_data[match(row.names(XIST_outliers),row.names(Violin_data)),3] <- row.names(XIST_outliers)
+
+#Violin_data_wo_outliers <- Violin_data[!(row.names(Violin_data) %in% rownames(XIST_outliers)), ]
+
+
+
+XISTp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(aes(fill=Sex), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1)) + geom_label_repel(label=Violin_data$Names, size=10, min.segment.length = 0, box.padding=0.5, segment.linetype=1, ,arrow=arrow(length = unit(0.2, "inches"),),segment.size=1.5,nudge_x = 0.5,nudge_y = 1.0, direction = "y", hjust = "right",point.size=NA) + labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"), axis.text= element_text(size=20))
+
+#XISTp<- ggplot(Violin_data_wo_outliers, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(aes(fill=Sex), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1)) + labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+#XISTp<- XISTp + ggplot(XIST_outliers, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(aes(fill=Sex), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1)) + geom_text_repel(label=rownames(XIST_outliers), size=3) + labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+#XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/XIST_violin_expression_ICGC_data.pdf", width=12, height=12)
+XISTp
+dev.off()
+```
+
+```{r XIST bar}
+T_or_TA<- as.data.frame(metadataSubset$tumor)
+colnames(T_or_TA) <- c("Tumor")
+
+Violin_data$Expression <- log(as.numeric(Violin_data$Expression)+0.01,10)
+
+XISTp<-ggplot(Violin_data, aes(x=row.names(Violin_data),y=Expression)) + geom_bar(stat="identity")
+XISTp 
+```
+
+```{r DDX3}
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+DDX3Y_expression <- vCorrectLibtype[grep(pattern="^ENSG00000067048", rownames(vCorrectLibtype)), ]
+
+write.csv(DDX3Y_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/DDX3Y_expression_values_iteration_1.csv" )
+
+DDX3Y_expression <- t(DDX3Y_expression)
+DDX3Y_expression <- as.data.frame(DDX3Y_expression)
+
+#DDX3Y_expression <- replace(DDX3Y_expression, DDX3Y_expression < 0, 0)
+
+DDX3Y_tumor_adj_file <- tumorAdjacentExp[grep(pattern="^ENSG00000067048", rownames(tumorAdjacentExp)), ]
+
+#XIST_expression <- matrix(t(XIST_expression))
+#DDX3Y_expression <- matrix(t(DDX3Y_expression))
+#DDX3Y_expression<- as.data.frame(DDX3Y_expression)
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+colnames(gender) <- c("Sex")
+Violin_data <-cbind(gender, DDX3Y_expression)
+Violin_data <- as.data.frame(Violin_data)
+colnames(Violin_data) <- c("Sex", "Expression")
+
+write.csv(DDX3Y_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/DDX3Y_expression_values_iteration_2.csv" )
+
+#DDX3Y_expression[DDX3Y_expression < 0] <- 0
+
+DDX3Y_expression_males <-Violin_data[which(Violin_data$Sex=="M"),] 
+DDX3Y_expression_females <-Violin_data[which(Violin_data$Sex=="F"),] 
+
+
+DDX3Y_expression_outlier1<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-tumor-XX"),]))
+DDX3Y_expression_outlier2<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-tumor-XX"),]))
+DDX3Y_expression_outlier3<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-adjacent-XY"),]))
+DDX3Y_expression_outlier4<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-adjacent-XY"),]))
+
+DDX3Y_expression_outlier5<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-adjacent-XX"),]))
+DDX3Y_expression_outlier6<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-adjacent-XX"),]))
+DDX3Y_expression_outlier7<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-tumor-XY"),]))
+DDX3Y_expression_outlier8<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-tumor-XY"),]))
+DDX3Y_expression_outlier9<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-tumor-XY"),]))
+DDX3Y_expression_outlier10<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-adjacent-XY"),]))
+DDX3Y_expression_outlier11<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-tumor-XX"),]))
+DDX3Y_expression_outlier12<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-adjacent-XX"),]))
+DDX3Y_expression_outlier13<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-tumor-XX"),]))
+DDX3Y_expression_outlier14<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-adjacent-XX"),]))
+DDX3Y_expression_outlier15<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-tumor-XX"),]))
+DDX3Y_expression_outlier16<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-adjacent-XX"),]))
+DDX3Y_expression_outlier17<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK096-tumor-XY"),]))
+
+DDX3Y_outliers <- as.data.frame(t(cbind(DDX3Y_expression_outlier1,DDX3Y_expression_outlier2,DDX3Y_expression_outlier3,DDX3Y_expression_outlier4,DDX3Y_expression_outlier5,DDX3Y_expression_outlier6,DDX3Y_expression_outlier7, DDX3Y_expression_outlier8)))
+
+Violin_data$Names = NA
+
+Violin_data[match(row.names(DDX3Y_outliers),row.names(Violin_data)),3] <- row.names(DDX3Y_outliers)
+
+DDX3Yp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(aes(fill=Sex), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1)) + geom_label_repel(label=Violin_data$Names, size=3)+  labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+
+
+#XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/DDX3Y_violin_expression_ICGC_data.pdf", width=12, height=12)
+DDX3Yp
+dev.off()
+```
+Plotting for KDM5C
+```{r Violin plot UTY}
+
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+UTY_expression <- vCorrectLibtype[grep(pattern="^ENSG00000126012", rownames(vCorrectLibtype)), ]
+
+test <- as.data.frame(rownames(vCorrectLibtype))
+
+#write.csv(DDX3Y_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/UTY_expression_values_iteration_1.csv" )
+
+UTY_expression <- t(UTY_expression)
+UTY_expression <- as.data.frame(UTY_expression)
+
+#UTY_expression <- replace(DDX3Y_expression, DDX3Y_expression < 0, 0)
+
+#UTY_tumor_adj_file <- tumorAdjacentExp[grep(pattern="^ENSG00000183878", rownames(tumorAdjacentExp)), ]
+
+#XIST_expression <- matrix(t(XIST_expression))
+#DDX3Y_expression <- matrix(t(DDX3Y_expression))
+#DDX3Y_expression<- as.data.frame(DDX3Y_expression)
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+colnames(gender) <- c("Sex")
+Violin_data <-cbind(gender, UTY_expression)
+Violin_data <- as.data.frame(Violin_data)
+colnames(Violin_data) <- c("Sex", "Expression")
+
+#write.csv(UTY_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/UTY_expression_values_iteration_2.csv" )
+
+#DDX3Y_expression[DDX3Y_expression < 0] <- 0
+
+UTY_expression_males <-Violin_data[which(Violin_data$Sex=="M"),] 
+UTY_expression_females <-Violin_data[which(Violin_data$Sex=="F"),] 
+
+UTY_expression_outlier1<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-tumor-XX"),]))
+UTY_expression_outlier2<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-tumor-XX"),]))
+UTY_expression_outlier3<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-adjacent-XY"),]))
+UTY_expression_outlier4<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-adjacent-XY"),]))
+
+UTY_expression_outlier5<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-adjacent-XX"),]))
+UTY_expression_outlier6<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-adjacent-XX"),]))
+UTY_expression_outlier7<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-tumor-XY"),]))
+UTY_expression_outlier8<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-tumor-XY"),]))
+UTY_expression_outlier9<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-tumor-XY"),]))
+UTY_expression_outlier10<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-adjacent-XY"),]))
+UTY_expression_outlier11<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-tumor-XX"),]))
+UTY_expression_outlier12<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-adjacent-XX"),]))
+UTY_expression_outlier13<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-tumor-XX"),]))
+UTY_expression_outlier14<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-adjacent-XX"),]))
+UTY_expression_outlier15<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-tumor-XX"),]))
+UTY_expression_outlier16<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-adjacent-XX"),]))
+UTY_expression_outlier17<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK096-tumor-XY"),]))
+
+UTY_outliers <- as.data.frame(t(cbind(UTY_expression_outlier1,UTY_expression_outlier2,UTY_expression_outlier3,UTY_expression_outlier4,UTY_expression_outlier5,UTY_expression_outlier6,UTY_expression_outlier7, UTY_expression_outlier8)))
+
+Violin_data$Names = NA
+
+Violin_data[match(row.names(UTY_outliers),row.names(Violin_data)),3] <- row.names(UTY_outliers)
+
+
+UTYp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(aes(fill=Sex), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1)) + geom_label_repel(label=Violin_data$Names, size=3)+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+
+
+#XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/UTY_violin_expression_ICGC_data.pdf", width=12, height=12)
+UTYp
+dev.off()
+
+```
+
+Coding for VCY instead
+
+```{r USP9Y violin plot}
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+USP9Y_expression <- vCorrectLibtype[grep(pattern="^ENSG00000129864", rownames(vCorrectLibtype)), ]
+
+#write.csv(DDX3Y_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/UTY_expression_values_iteration_1.csv" )
+
+USP9Y_expression <- t(USP9Y_expression)
+USP9Y_expression <- as.data.frame(USP9Y_expression)
+
+#UTY_expression <- replace(DDX3Y_expression, DDX3Y_expression < 0, 0)
+
+#UTY_tumor_adj_file <- tumorAdjacentExp[grep(pattern="^ENSG00000183878", rownames(tumorAdjacentExp)), ]
+
+#XIST_expression <- matrix(t(XIST_expression))
+#DDX3Y_expression <- matrix(t(DDX3Y_expression))
+#DDX3Y_expression<- as.data.frame(DDX3Y_expression)
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+colnames(gender) <- c("Sex")
+Violin_data <-cbind(gender, USP9Y_expression)
+Violin_data <- as.data.frame(Violin_data)
+colnames(Violin_data) <- c("Sex", "Expression")
+
+#write.csv(UTY_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/UTY_expression_values_iteration_2.csv" )
+
+#DDX3Y_expression[DDX3Y_expression < 0] <- 0
+
+USP9Y_expression_males <-Violin_data[which(Violin_data$Sex=="M"),] 
+USP9Y_expression_females <-Violin_data[which(Violin_data$Sex=="F"),]
+
+USP9Y_expression_outlier1<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-tumor-XX"),]))
+USP9Y_expression_outlier2<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-tumor-XX"),]))
+USP9Y_expression_outlier3<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-adjacent-XY"),]))
+USP9Y_expression_outlier4<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-adjacent-XY"),]))
+
+USP9Y_expression_outlier5<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK135-adjacent-XX"),]))
+USP9Y_expression_outlier6<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK106-adjacent-XX"),]))
+USP9Y_expression_outlier7<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK113-tumor-XY"),]))
+USP9Y_expression_outlier8<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK169-tumor-XY"),]))
+USP9Y_expression_outlier9<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-tumor-XY"),]))
+USP9Y_expression_outlier10<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK105-adjacent-XY"),]))
+USP9Y_expression_outlier11<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-tumor-XX"),]))
+USP9Y_expression_outlier12<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK065-adjacent-XX"),]))
+USP9Y_expression_outlier13<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-tumor-XX"),]))
+USP9Y_expression_outlier14<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK116-adjacent-XX"),]))
+USP9Y_expression_outlier15<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-tumor-XX"),]))
+USP9Y_expression_outlier16<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK066-adjacent-XX"),]))
+USP9Y_expression_outlier17<- as.data.frame(t(Violin_data[which(rownames(Violin_data)=="RK096-tumor-XY"),]))
+
+USP9Y_outliers <- as.data.frame(t(cbind(USP9Y_expression_outlier1,USP9Y_expression_outlier2,USP9Y_expression_outlier3,USP9Y_expression_outlier4,USP9Y_expression_outlier5,USP9Y_expression_outlier6,USP9Y_expression_outlier7, USP9Y_expression_outlier8)))
+
+Violin_data$Names = NA
+
+Violin_data[match(row.names(USP9Y_outliers),row.names(Violin_data)),3] <- row.names(USP9Y_outliers)
+
+
+USP9Yp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + geom_violin(aes(fill=Sex), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+geom_label_repel(label=Violin_data$Names, size=3)+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+
+
+
+#XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/USP9Y_violin_expression_ICGC_data.pdf", width=12, height=12)
+USP9Yp
+dev.off()
+
+```
+
+**Sex Check Part 2 Box plots**
+Creating bar plots of XIST, DDX3Y, UTY USP9Y with each sample labeled so we can compare the gene expression level of each sample to the MDS plot
+
+Bar plot for RK-106-tumor-XX gene expression 
+```{r RK106TXX Barplots}
+XIST_expression_outlier2<- as.data.frame(t(XIST_expression_outlier2))
+DDX3Y_expression_outlier2<- as.data.frame(t(DDX3Y_expression_outlier2))
+UTY_expression_outlier2<- as.data.frame(t(UTY_expression_outlier2))
+USP9Y_expression_outlier2<- as.data.frame(t(USP9Y_expression_outlier2))
+
+RK106_T_XX_expression <- as.data.frame(cbind(XIST_expression_outlier2$Expression, DDX3Y_expression_outlier2$Expression, UTY_expression_outlier2$Expression, USP9Y_expression_outlier2$Expression))
+colnames(RK106_T_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+#RK106_T_XX_expression <- log(as.numeric(RK106_T_XX_expression)+0.01,10
+
+RK106_T_XX_expression<- log10(as.numeric(RK106_T_XX_expression)+0.01)
+#RK106_T_XX_expression<- as.data.frame(RK106_T_XX_expression)
+#par(mar=c(15,4,4,2))
+
+barplot(height=RK106_T_XX_expression,beside=T, xlim=c(-1,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=2)
+
+#RK106_T_XX_expression_plot<- barplot(log(as.numeric(RK106_T_XX_expression)+0.01,10),beside=T, ylim=c(0,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK106_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK106_T_XX_expression,beside=T, xlim=c(-0.5,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+
+Bar plot RK-113-adjacent-XY gene expression 
+```{r RK113AXY plot}
+XIST_expression_outlier3<- as.data.frame(t(XIST_expression_outlier3))
+DDX3Y_expression_outlier3<- as.data.frame(t(DDX3Y_expression_outlier3))
+UTY_expression_outlier3<- as.data.frame(t(UTY_expression_outlier3))
+USP9Y_expression_outlier3<- as.data.frame(t(USP9Y_expression_outlier3))
+
+RK113_A_XY_expression <- as.data.frame(cbind(XIST_expression_outlier3$Expression, DDX3Y_expression_outlier3$Expression, UTY_expression_outlier3$Expression, USP9Y_expression_outlier3$Expression))
+colnames(RK113_A_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK113_A_XY_expression<- log10(as.numeric(RK113_A_XY_expression)+0.01)
+
+barplot(height=RK113_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK113_A_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK113_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK169AXY}
+XIST_expression_outlier4<- as.data.frame(t(XIST_expression_outlier4))
+DDX3Y_expression_outlier4<- as.data.frame(t(DDX3Y_expression_outlier4))
+UTY_expression_outlier4<- as.data.frame(t(UTY_expression_outlier4))
+USP9Y_expression_outlier4<- as.data.frame(t(USP9Y_expression_outlier4))
+
+RK169_A_XY_expression <- as.data.frame(cbind(XIST_expression_outlier4$Expression, DDX3Y_expression_outlier4$Expression, UTY_expression_outlier4$Expression, USP9Y_expression_outlier4$Expression))
+colnames(RK169_A_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK169_A_XY_expression<- log10(as.numeric(RK169_A_XY_expression)+0.01)
+
+barplot(height=RK169_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK169_A_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK169_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK106AXX}
+XIST_expression_outlier6<- as.data.frame(t(XIST_expression_outlier6))
+DDX3Y_expression_outlier6<- as.data.frame(t(DDX3Y_expression_outlier6))
+UTY_expression_outlier6<- as.data.frame(t(UTY_expression_outlier6))
+USP9Y_expression_outlier6<- as.data.frame(t(USP9Y_expression_outlier6))
+
+RK106_A_XX_expression <- as.data.frame(cbind(XIST_expression_outlier6$Expression, DDX3Y_expression_outlier6$Expression, UTY_expression_outlier6$Expression, USP9Y_expression_outlier6$Expression))
+colnames(RK106_A_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK106_A_XX_expression<- log10(as.numeric(RK106_A_XX_expression)+0.01)
+
+barplot(height=RK106_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK106_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK106_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK113TXY}
+XIST_expression_outlier7<- as.data.frame(t(XIST_expression_outlier7))
+DDX3Y_expression_outlier7<- as.data.frame(t(DDX3Y_expression_outlier7))
+UTY_expression_outlier7<- as.data.frame(t(UTY_expression_outlier7))
+USP9Y_expression_outlier7<- as.data.frame(t(USP9Y_expression_outlier7))
+
+RK113_T_XY_expression <- as.data.frame(cbind(XIST_expression_outlier7$Expression, DDX3Y_expression_outlier7$Expression, UTY_expression_outlier7$Expression, USP9Y_expression_outlier7$Expression))
+colnames(RK113_T_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK113_T_XY_expression<- log10(as.numeric(RK113_T_XY_expression)+0.01)
+
+barplot(height=RK113_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK113_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK113_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK169TXY}
+XIST_expression_outlier8<- as.data.frame(t(XIST_expression_outlier8))
+DDX3Y_expression_outlier8<- as.data.frame(t(DDX3Y_expression_outlier8))
+UTY_expression_outlier8<- as.data.frame(t(UTY_expression_outlier8))
+USP9Y_expression_outlier8<- as.data.frame(t(USP9Y_expression_outlier8))
+
+RK169_T_XY_expression <- as.data.frame(cbind(XIST_expression_outlier8$Expression, DDX3Y_expression_outlier8$Expression, UTY_expression_outlier8$Expression, USP9Y_expression_outlier8$Expression))
+colnames(RK169_T_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK169_T_XY_expression<- log10(as.numeric(RK169_T_XY_expression)+0.01)
+
+barplot(height=RK169_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK169_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK169_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK135TXX}
+XIST_expression_outlier1<- as.data.frame(t(XIST_expression_outlier1))
+DDX3Y_expression_outlier1<- as.data.frame(t(DDX3Y_expression_outlier1))
+UTY_expression_outlier1<- as.data.frame(t(UTY_expression_outlier1))
+USP9Y_expression_outlier1<- as.data.frame(t(USP9Y_expression_outlier1))
+
+RK135_T_XX_expression <- as.data.frame(cbind(XIST_expression_outlier1$Expression, DDX3Y_expression_outlier1$Expression, UTY_expression_outlier1$Expression, USP9Y_expression_outlier1$Expression))
+colnames(RK135_T_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK135_T_XX_expression<- log10(as.numeric(RK135_T_XX_expression)+0.01)
+
+barplot(height=RK135_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK135_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK135_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK105TXY}
+XIST_expression_outlier9<- as.data.frame(t(XIST_expression_outlier9))
+DDX3Y_expression_outlier9<- as.data.frame(t(DDX3Y_expression_outlier9))
+UTY_expression_outlier9<- as.data.frame(t(UTY_expression_outlier9))
+USP9Y_expression_outlier9<- as.data.frame(t(USP9Y_expression_outlier9))
+
+RK105_T_XY_expression <- as.data.frame(cbind(XIST_expression_outlier9$Expression, DDX3Y_expression_outlier9$Expression, UTY_expression_outlier9$Expression, USP9Y_expression_outlier9$Expression))
+colnames(RK105_T_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK105_T_XY_expression<- log10(as.numeric(RK105_T_XY_expression)+0.01)
+
+barplot(height=RK105_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK105_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK105_T_XY_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK105AXY}
+XIST_expression_outlier10<- as.data.frame(t(XIST_expression_outlier10))
+DDX3Y_expression_outlier10<- as.data.frame(t(DDX3Y_expression_outlier10))
+UTY_expression_outlier10<- as.data.frame(t(UTY_expression_outlier10))
+USP9Y_expression_outlier10<- as.data.frame(t(USP9Y_expression_outlier10))
+
+RK105_A_XY_expression <- as.data.frame(cbind(XIST_expression_outlier10$Expression, DDX3Y_expression_outlier10$Expression, UTY_expression_outlier10$Expression, USP9Y_expression_outlier10$Expression))
+colnames(RK105_A_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK105_A_XY_expression<- log10(as.numeric(RK105_A_XY_expression)+0.01)
+
+barplot(height=RK105_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK105_A_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK105_A_XY_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK065TXX}
+XIST_expression_outlier11<- as.data.frame(t(XIST_expression_outlier11))
+DDX3Y_expression_outlier11<- as.data.frame(t(DDX3Y_expression_outlier11))
+UTY_expression_outlier11<- as.data.frame(t(UTY_expression_outlier11))
+USP9Y_expression_outlier11<- as.data.frame(t(USP9Y_expression_outlier11))
+
+RK065_T_XX_expression <- as.data.frame(cbind(XIST_expression_outlier11$Expression, DDX3Y_expression_outlier11$Expression, UTY_expression_outlier11$Expression, USP9Y_expression_outlier11$Expression))
+colnames(RK065_T_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK065_T_XX_expression<- log10(as.numeric(RK065_T_XX_expression)+0.01)
+
+barplot(height=RK065_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK065_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK065_T_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK065AXX}
+XIST_expression_outlier12<- as.data.frame(t(XIST_expression_outlier12))
+DDX3Y_expression_outlier12<- as.data.frame(t(DDX3Y_expression_outlier12))
+UTY_expression_outlier12<- as.data.frame(t(UTY_expression_outlier12))
+USP9Y_expression_outlier12<- as.data.frame(t(USP9Y_expression_outlier12))
+
+RK065_A_XX_expression <- as.data.frame(cbind(XIST_expression_outlier12$Expression, DDX3Y_expression_outlier12$Expression, UTY_expression_outlier12$Expression, USP9Y_expression_outlier12$Expression))
+colnames(RK065_A_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK065_A_XX_expression<- log10(as.numeric(RK065_A_XX_expression)+0.01)
+
+barplot(height=RK065_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK065_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK065_A_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK116TXX}
+XIST_expression_outlier13<- as.data.frame(t(XIST_expression_outlier13))
+DDX3Y_expression_outlier13<- as.data.frame(t(DDX3Y_expression_outlier13))
+UTY_expression_outlier13<- as.data.frame(t(UTY_expression_outlier13))
+USP9Y_expression_outlier13<- as.data.frame(t(USP9Y_expression_outlier13))
+
+RK116_T_XX_expression <- as.data.frame(cbind(XIST_expression_outlier13$Expression, DDX3Y_expression_outlier13$Expression, UTY_expression_outlier13$Expression, USP9Y_expression_outlier13$Expression))
+colnames(RK116_T_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK116_T_XX_expression<- log10(as.numeric(RK116_T_XX_expression)+0.01)
+
+barplot(height=RK116_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK116_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK116_T_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK116AXX}
+XIST_expression_outlier14<- as.data.frame(t(XIST_expression_outlier14))
+DDX3Y_expression_outlier14<- as.data.frame(t(DDX3Y_expression_outlier14))
+UTY_expression_outlier14<- as.data.frame(t(UTY_expression_outlier14))
+USP9Y_expression_outlier14<- as.data.frame(t(USP9Y_expression_outlier14))
+
+RK116_A_XX_expression <- as.data.frame(cbind(XIST_expression_outlier14$Expression, DDX3Y_expression_outlier14$Expression, UTY_expression_outlier14$Expression, USP9Y_expression_outlier14$Expression))
+colnames(RK116_A_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK116_A_XX_expression<- log10(as.numeric(RK116_A_XX_expression)+0.01)
+
+barplot(height=RK116_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK116_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK116_A_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+
+RK116_A_XX_expression <- as.data.frame(RK116_A_XX_expression)
+```
+
+```{r RK066TXX}
+XIST_expression_outlier15<- as.data.frame(t(XIST_expression_outlier15))
+DDX3Y_expression_outlier15<- as.data.frame(t(DDX3Y_expression_outlier15))
+UTY_expression_outlier15<- as.data.frame(t(UTY_expression_outlier15))
+USP9Y_expression_outlier15<- as.data.frame(t(USP9Y_expression_outlier15))
+
+RK066_T_XX_expression <- as.data.frame(cbind(XIST_expression_outlier15$Expression, DDX3Y_expression_outlier15$Expression, UTY_expression_outlier15$Expression, USP9Y_expression_outlier15$Expression))
+colnames(RK066_T_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK066_T_XX_expression<- log10(as.numeric(RK066_T_XX_expression)+0.01)
+
+barplot(height=RK066_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK066_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK066_T_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK066AXX}
+XIST_expression_outlier16<- as.data.frame(t(XIST_expression_outlier16))
+DDX3Y_expression_outlier16<- as.data.frame(t(DDX3Y_expression_outlier16))
+UTY_expression_outlier16<- as.data.frame(t(UTY_expression_outlier16))
+USP9Y_expression_outlier16<- as.data.frame(t(USP9Y_expression_outlier16))
+
+RK066_A_XX_expression <- as.data.frame(cbind(XIST_expression_outlier16$Expression, DDX3Y_expression_outlier16$Expression, UTY_expression_outlier16$Expression, USP9Y_expression_outlier16$Expression))
+colnames(RK066_A_XX_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+
+RK066_A_XX_expression<- log10(as.numeric(RK066_A_XX_expression)+0.01)
+
+barplot(height=RK066_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK066_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK066_A_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+```
+
+```{r RK096TXY Barplots}
+XIST_expression_outlier17<- as.data.frame(t(XIST_expression_outlier17))
+DDX3Y_expression_outlier17<- as.data.frame(t(DDX3Y_expression_outlier17))
+UTY_expression_outlier17<- as.data.frame(t(UTY_expression_outlier17))
+USP9Y_expression_outlier17<- as.data.frame(t(USP9Y_expression_outlier17))
+
+RK096_T_XY_expression <- as.data.frame(cbind(XIST_expression_outlier17$Expression, DDX3Y_expression_outlier17$Expression, UTY_expression_outlier17$Expression, USP9Y_expression_outlier17$Expression))
+colnames(RK096_T_XY_expression) <- c("XIST","DDX3Y","UTY","USP9Y")
+#RK106_T_XX_expression <- log(as.numeric(RK106_T_XX_expression)+0.01,10
+
+RK096_T_XY_expression<- log10(as.numeric(RK096_T_XY_expression)+0.01)
+#RK106_T_XX_expression<- as.data.frame(RK106_T_XX_expression)
+#par(mar=c(15,4,4,2))
+
+barplot(height=RK096_T_XY_expression,beside=T, xlim=c(-1,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=2)
+
+#RK106_T_XX_expression_plot<- barplot(log(as.numeric(RK106_T_XX_expression)+0.01,10),beside=T, ylim=c(0,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"))
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK096_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+barplot(height=RK096_T_XY_expression,beside=T, xlim=c(-2,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
+dev.off()
+
+RK096_T_XY_expression<- as.data.frame(RK096_T_XY_expression)
+```

@@ -1,0 +1,582 @@
+---
+title: "2023_Version2_Violin_XIST_y_linked_genes"
+author: "Annika Jorgensen"
+date: "2023-08-31"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **R Markdown**
+
+Title: Violin Plots XIST and y-linked genes 
+Author: Annika Jorgensen  
+Date: 08/31/2023
+
+Purpose: This document is the second version of the violin plots document. The intention of this document is to create a bar plot subsetted by sex and lesion type of gene expression data in order to see if certain samples deemed to be outliers have their sex or lesion type mislabeled. The four genes that we are looking at to do this check are 
+
+1) USP9Y (using VCY ensembl id because the USP9Y ensembl id is not the gene id used in the ICGC data set)
+2) XIST
+3) DDX3Y
+4) UTY (using KDM5C ensembl id because the UTY ensembl id in the the gene id used in the ICGC data set)
+
+The samples were deemed to be outliers if the were in the wrong cluster on the "Version 2 Sex Stratified MDS plot top 25 genes" (See 2023_06_07_v2_MDS_plots.Rmd for the coding of that MDS plot). To verify the samples coorelated with these points we used "Test Version Sex Stratified MDS plot top 25 genes" (See 2023_06_07_v2_MDS_plots.Rmd for the coding of that MDS plot).
+
+The samples that were deemed to be outliers are
+
+1) RK106-tumor-XX
+2) RK113-adjacent-XY
+3) RK169-adjacent-XY
+4) RK135-tumor-XX
+5) RK105-tumor-XY
+6) RK105-adjacent-XY 
+7) RK065-tumor-XX
+8) RK065-adjacent-XX
+9) RK116-tumor-XX
+10) RK066-adjacent-XX
+
+
+### **Libraries**
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.  
+```{r Libraries, include=FALSE}
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(gridExtra)
+
+setwd('~/Desktop/Research Projects/Liver Cancer Project')
+```
+
+**Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by converting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+```
+
+**Read in data**
+
+This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
+```{r Reading_in_data}
+metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project//Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
+
+# Importing gene annotations
+#genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
+genes <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- data.frame(genes)
+tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
+genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
+# Calculating gene length, this is needed for calculating the FPKM values
+genes$length <- with(genes, end - start)
+
+# Removing RK023 due to low quality
+metadata <- metadata[!(metadata$ID == "RK023") , ]
+
+#Removing both and NBNC samples
+metadata <- metadata[!(metadata$Virus_infection == "NBNC"), ]
+metadata <- metadata[!(metadata$Virus_infection == "both"), ]
+
+# Subsetting and ordering metadata to match the count matrix
+tumorAdjacentExpSubset <- tumorAdjacentExp[,colnames(tumorAdjacentExp) %in% metadata$sampleid]
+metadataSubset <- metadata[metadata$sampleid %in% colnames(tumorAdjacentExpSubset),]
+metadataSubset <- metadataSubset[match(colnames(tumorAdjacentExpSubset), metadataSubset$sampleid),]
+rownames(metadataSubset) <- metadataSubset$sampleid
+
+# Adding tissue type, converting categorical variables to factors
+metadataSubset$tumor <- as.numeric(grepl('tumor', metadataSubset$sampleid, ignore.case=T))
+metadataSubset$gender_tissue <- paste(metadataSubset$Gender, metadataSubset$tumor, sep="_")
+metadataSubset$gender_tissue_viral <- paste(metadataSubset$gender_tissue, metadataSubset$Virus_infection, sep="_")
+metadataSubset$library_type <- metadataSubset$strandedness
+metadataSubset$library_type <- factor(metadataSubset$library_type)
+metadataSubset$tumor <- factor(metadataSubset$tumor)
+metadataSubset$Ta <- factor(metadataSubset$Ta)
+metadataSubset$Portal_vein_invasion <- factor(metadataSubset$Portal_vein_invasion)
+metadataSubset$Hepatic_vein_invasion <- factor(metadataSubset$Hepatic_vein_invasion)
+metadataSubset$Bile_duct_invasion <- factor(metadataSubset$Bile_duct_invasion)
+metadataSubset$Liver_fibrosisc <- factor(metadataSubset$Liver_fibrosisc)
+metadataSubset$Prognosis <- factor(metadataSubset$Prognosis)
+```
+
+```{r DGE Object}
+# Creating the DGEList object
+dge <- DGEList(counts=tumorAdjacentExpSubset, genes=genes)
+colnames(dge) <- colnames(tumorAdjacentExpSubset)
+dge$samples$sex <- metadataSubset$Gender
+dge$samples$viral <- factor(metadataSubset$Virus_infection)
+dge$samples$ID <- metadataSubset$ID
+dge$samples$tumor <- metadataSubset$tumor
+dge$samples$gender_tissue <- metadataSubset$gender_tissue
+dge$samples$gender_tissue_viral <- metadataSubset$gender_tissue_viral
+dge$samples$library_type <- metadataSubset$library_type
+dge$samples$edmonson_grade <- metadataSubset$Edmondson_grade
+dge$samples$Ta <- metadataSubset$Ta
+dge$samples$survival <- metadataSubset$Overall_survival_month
+
+# Inspecting the N of samples in each group
+table(dge$samples$gender_tissue_viral)
+```
+
+```{r fpkm}
+# ======================================
+# Filtering expression data
+# ======================================
+
+# Keeping genes that have a mean FPKM of at least 0.5 in at least one of the
+# groups under investigation and at least 6 reads in at least 10 samples
+fpkm <- rpkm(dge, gene.length=dge$genes$length)
+
+M_1_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_1_HBV")],1,mean,na.rm=TRUE)
+M_0_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_0_HBV")],1,mean,na.rm=TRUE)
+M_1_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_1_HCV")],1,mean,na.rm=TRUE)
+M_0_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_0_HCV")],1,mean,na.rm=TRUE)
+
+F_1_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_1_HBV")],1,mean,na.rm=TRUE)
+F_0_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_0_HBV")],1,mean,na.rm=TRUE)
+F_1_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_1_HCV")],1,mean,na.rm=TRUE)
+F_0_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_0_HCV")],1,mean,na.rm=TRUE)
+
+keep <- (M_1_HBV_mean_fpkm > 0.5 | M_0_HBV_mean_fpkm > 0.5 | 
+           M_1_HCV_mean_fpkm > 0.5 | M_0_HCV_mean_fpkm > 0.5 |
+           F_1_HBV_mean_fpkm > 0.5 | F_0_HBV_mean_fpkm > 0.5 |
+           F_1_HCV_mean_fpkm > 0.5 | F_0_HCV_mean_fpkm > 0.5 )
+
+dge <- dge[keep,,keep.lib.sizes=FALSE]
+dge <- calcNormFactors(dge, method="TMM")
+keep <- rowSums(dge$counts > 6) >= 10
+dge <- dge[keep,,keep.lib.size=FALSE]
+dge <- calcNormFactors(dge, method="TMM")
+
+# N of genes retained after filtering
+dim(dge$genes)
+```
+
+```{r Voom}
+# ===================================== ======================
+# ===========================================================
+# Analysis of all tumor vs. tumor-adjacent regardless of sex
+# ===========================================================
+# ===========================================================
+
+# Creating a new design model matrix with the variable of interest and the
+# library type
+design <- model.matrix(~0+dge$samples$tumor+dge$samples$library_type+dge$samples$Ta)
+colnames(design) <- gsub("dge\\$samples\\$tumor", "tumor", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$library_typeunstranded", "library_type", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta2", "Ta2", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta3", "Ta3", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta4", "Ta4", colnames(design))
+head(design)
+
+# Running voom again with the new design matrix.
+v <- voomWithQualityWeights(dge, design, plot=TRUE)
+```
+
+```{r Library Type Correction and XIST subsetting}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+# Exponentiating Expression data
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+
+#Pulling XIST gene expression data
+XIST_expression <- vCorrectLibtype[grep(pattern="^ENSG00000229807", rownames(vCorrectLibtype)), ]
+XIST_expression <- t(XIST_expression)
+XIST_expression<- as.data.frame(XIST_expression)
+
+#Pulling the sex of the samples 
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+
+#Naming the columns
+colnames(gender) <- c("Sex")
+
+#Pulling the lesion type of the samples 
+tumor_or_adjacent <- metadataSubset$tumor
+tumor_or_adjacent <- as.data.frame(tumor_or_adjacent)
+colnames(gender) <- c("Tumor")
+
+#Creating a dataframe with the sex and lesion type of the samples along with the XIST expression data
+Violin_data <-cbind(gender,XIST_expression,tumor_or_adjacent)
+Violin_data <- as.data.frame(Violin_data)
+
+#Naming the columns
+colnames(Violin_data) <- c("Sex", "Expression", "Tumor")
+
+#Subsetting XIST expression data by male sex
+Males_XIST <- Violin_data[which(Violin_data$Sex=="M"),]
+
+#Subsetting XIST expression data by male sex and tumor lesion type
+Males_T_XIST <- Males_XIST[which(Males_XIST$Tumor=="1"),]
+
+#Subsetting XIST expression data by male sex and tumor adjacent lesion type 
+Males_TA_XIST <- Males_XIST[which(Males_XIST$Tumor=="0"),]
+
+#Subsetting XIST expression data by female sex
+Females_XIST <- Violin_data[which(Violin_data$Sex=="F"),]
+
+#Subsetting XIST expression data by female sex and tumor lesion type
+Females_T_XIST <- Females_XIST[which(Females_XIST$Tumor=="1"),]
+
+#Subsetting XIST expression data by female sex and tumor adjacent lesion type
+Females_TA_XIST <- Females_XIST[which(Females_XIST$Tumor=="0"),]
+
+#Creating tumor XIST expression data
+Tumor_XIST <- rbind(Females_T_XIST, Males_T_XIST)
+```
+
+```{r Plotting XIST Expression}
+#Taking the log base 10 tumor XIST expression data
+Tumor_XIST$Expression <- log(as.numeric(Tumor_XIST$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+Tumor_XIST$SexNumeric = as.integer(Tumor_XIST$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(Tumor_XIST)[1])
+{
+  Tumor_XIST$Names[i] = substr(row.names(Tumor_XIST)[i],3,5)
+}
+
+#Creates a box plot of XIST gene expression data of all tumor samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/XIST_tumor_expression_data.pdf", width=12, height=12)
+ggplot(Tumor_XIST, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Samples Expression data") + labs(title="XIST Tumor Samples Expression Data")
+dev.off()
+```
+
+```{r DDX3Y Subsetting}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+# Exponentiation Expression data
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+
+#Pulling XIST gene expression data
+DDX3Y_expression <- vCorrectLibtype[grep(pattern="^ENSG00000067048", rownames(vCorrectLibtype)), ]
+DDX3Y_expression <- t(DDX3Y_expression)
+DDX3Y_expression<- as.data.frame(DDX3Y_expression)
+
+#Pulling the sex of the samples 
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+
+#Naming the columns
+colnames(gender) <- c("Sex")
+
+#Pulling the lesion type of the samples 
+tumor_or_adjacent <- metadataSubset$tumor
+tumor_or_adjacent <- as.data.frame(tumor_or_adjacent)
+colnames(gender) <- c("Tumor")
+
+#Creating a dataframe with the sex and lesion type of the samples along with the DDX3Y expression data
+Violin_data <-cbind(gender,DDX3Y_expression,tumor_or_adjacent)
+Violin_data <- as.data.frame(Violin_data)
+
+#Naming the columns
+colnames(Violin_data) <- c("Sex", "Expression", "Tumor")
+
+#Subsetting DDX3Y expression data by male sex
+Males_DDX3Y <- Violin_data[which(Violin_data$Sex=="M"),]
+
+#Subsetting DDX3Y expression data by male sex and tumor lesion type
+Males_T_DDX3Y <- Males_DDX3Y[which(Males_DDX3Y$Tumor=="1"),]
+
+#Subsetting DDX3Y expression data by male sex and tumor adjacent lesion type 
+Males_TA_DDX3Y <- Males_DDX3Y[which(Males_DDX3Y$Tumor=="0"),]
+
+#Subsetting DDX3Y expression data by female sex
+Females_DDX3Y <- Violin_data[which(Violin_data$Sex=="F"),]
+
+#Subsetting DDX3Y expression data by female sex and tumor lesion type
+Females_T_DDX3Y <- Females_DDX3Y[which(Females_DDX3Y$Tumor=="1"),]
+
+#Subsetting DDX3Y expression data by female sex and tumor adjacent lesion type
+Females_TA_DDX3Y <- Females_DDX3Y[which(Females_DDX3Y$Tumor=="0"),]
+
+#Creating tumor DDX3Y expression data
+Tumor_DDX3Y <- rbind(Females_T_DDX3Y, Males_T_DDX3Y)
+```
+
+```{r Plotting DDX3Y Expression}
+#Taking the log base 10 tumor DDx3Y expression data
+Tumor_DDX3Y$Expression <- log(as.numeric(Tumor_DDX3Y$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+Tumor_DDX3Y$SexNumeric = as.integer(Tumor_DDX3Y$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(Tumor_DDX3Y)[1])
+{
+  Tumor_DDX3Y$Names[i] = substr(row.names(Tumor_DDX3Y)[i],3,5)
+}
+
+#Creates a box plot of DDX3Y gene expression data of all tumor samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/DDX3Y_tumor_expression_data.pdf", width=12, height=12)
+ggplot(Tumor_DDX3Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Samples Expression data") + labs(title="DDX3Y Tumor Samples Expression Data")
+dev.off()
+```
+
+```{r UTY Subsetting}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+# Exponentiating Expression data
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+
+#Pulling UTY gene expression data
+UTY_expression <- vCorrectLibtype[grep(pattern="^ENSG00000126012", rownames(vCorrectLibtype)), ]
+UTY_expression <- t(UTY_expression)
+UTY_expression<- as.data.frame(UTY_expression)
+
+#Pulling the sex of the samples 
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+
+#Naming the columns
+colnames(gender) <- c("Sex")
+
+#Pulling the lesion type of the samples 
+tumor_or_adjacent <- metadataSubset$tumor
+tumor_or_adjacent <- as.data.frame(tumor_or_adjacent)
+colnames(gender) <- c("Tumor")
+
+#Creating a dataframe with the sex and lesion type of the samples along with the XIST expression data
+Violin_data <-cbind(gender,UTY_expression,tumor_or_adjacent)
+Violin_data <- as.data.frame(Violin_data)
+
+#Naming the columns
+colnames(Violin_data) <- c("Sex", "Expression", "Tumor")
+
+#Subsetting UTY expression data by male sex
+Males_UTY <- Violin_data[which(Violin_data$Sex=="M"),]
+
+#Subsetting UTY expression data by male sex and tumor lesion type
+Males_T_UTY <- Males_UTY[which(Males_UTY$Tumor=="1"),]
+
+#Subsetting UTY expression data by male sex and tumor adjacent lesion type 
+Males_TA_UTY <- Males_UTY[which(Males_UTY$Tumor=="0"),]
+
+#Subsetting UTY expression data by female sex
+Females_UTY <- Violin_data[which(Violin_data$Sex=="F"),]
+
+#Subsetting UTY expression data by female sex and tumor lesion type
+Females_T_UTY <- Females_UTY[which(Females_UTY$Tumor=="1"),]
+
+#Subsetting UTY expression data by female sex and tumor adjacent lesion type
+Females_TA_UTY <- Females_UTY[which(Females_UTY$Tumor=="0"),]
+
+#Creating tumor UTY expression data
+Tumor_UTY <- rbind(Females_T_UTY, Males_T_UTY)
+```
+
+```{r UTY Plotting}
+#Taking the log base 10  tumor UTY expression data
+Tumor_UTY$Expression <- log(as.numeric(Tumor_UTY$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+Tumor_UTY$SexNumeric = as.integer(Tumor_UTY$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(Tumor_UTY)[1])
+{
+  Tumor_UTY$Names[i] = substr(row.names(Tumor_UTY)[i],3,5)
+}
+
+#Creates a box plot of UTY gene expression data of all tumor samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/UTY_tumor_expression_data.pdf", width=12, height=12)
+ggplot(Tumor_UTY, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Samples Expression data") + labs(title="UTY Tumor Samples Expression Data")
+dev.off()
+```
+
+```{r USP9Y Subsetting}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+
+# Exponentiating Expression data
+vCorrectLibtype <- 2 ^ vCorrectLibtype
+vCorrectLibtype <- as.data.frame(vCorrectLibtype)
+
+#Pulling USP9Y gene expression data
+USP9Y_expression <- vCorrectLibtype[grep(pattern="^ENSG00000129864", rownames(vCorrectLibtype)), ]
+USP9Y_expression <- t(USP9Y_expression)
+USP9Y_expression<- as.data.frame(USP9Y_expression)
+
+#Pulling the sex of the samples 
+gender <- metadataSubset$Gender
+gender<- as.data.frame(gender)
+
+#Naming the columns
+colnames(gender) <- c("Sex")
+
+#Pulling the lesion type of the samples 
+tumor_or_adjacent <- metadataSubset$tumor
+tumor_or_adjacent <- as.data.frame(tumor_or_adjacent)
+colnames(gender) <- c("Tumor")
+
+#Creating a dataframe with the sex and lesion type of the samples along with the XIST expression data
+Violin_data <-cbind(gender,USP9Y_expression,tumor_or_adjacent)
+Violin_data <- as.data.frame(Violin_data)
+
+#Naming the columns
+colnames(Violin_data) <- c("Sex", "Expression", "Tumor")
+
+#Subsetting USP9Y expression data by male sex
+Males_USP9Y <- Violin_data[which(Violin_data$Sex=="M"),]
+
+#Subsetting USP9Y expression data by male sex and tumor lesion type
+Males_T_USP9Y <- Males_USP9Y[which(Males_USP9Y$Tumor=="1"),]
+
+#Subsetting USP9Y expression data by male sex and tumor adjacent lesion type 
+Males_TA_USP9Y <- Males_USP9Y[which(Males_USP9Y$Tumor=="0"),]
+
+#Subsetting USP9Y expression data by female sex
+Females_USP9Y <- Violin_data[which(Violin_data$Sex=="F"),]
+
+#Subsetting USP9Y expression data by female sex and tumor lesion type
+Females_T_USP9Y <- Females_USP9Y[which(Females_USP9Y$Tumor=="1"),]
+
+#Subsetting USP9Y expression data by female sex and tumor adjacent lesion type
+Females_TA_USP9Y <- Females_USP9Y[which(Females_USP9Y$Tumor=="0"),]
+
+#Creating tumor USP9Y expression data
+Tumor_USP9Y <- rbind(Females_T_USP9Y, Males_T_USP9Y)
+```
+
+```{r USP9Y Subsetting}
+#Taking the log base 10 tumor USP9Y expression data
+Tumor_USP9Y$Expression <- log(as.numeric(Tumor_USP9Y$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+Tumor_USP9Y$SexNumeric = as.integer(Tumor_USP9Y$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(Tumor_USP9Y)[1])
+{
+  Tumor_USP9Y$Names[i] = substr(row.names(Tumor_USP9Y)[i],3,5)
+}
+
+#Creates a box plot of USP9Y gene expression data of all tumor samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/USP9Y_tumor_expression_data.pdf", width=12, height=12)
+ggplot(Tumor_USP9Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Samples Expression data") + labs(title="USP9Y Tumor Samples Expression Data")
+dev.off()
+```
+
+```{r Plotting XIST Adjacent Expression}
+#Creating tumor adjacent XIST expression data
+TumorAdj_XIST <- rbind(Females_TA_XIST, Males_TA_XIST)
+
+#Taking the log base 10  tumor adjacent XIST expression data
+TumorAdj_XIST$Expression <- log(as.numeric(TumorAdj_XIST$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+TumorAdj_XIST$SexNumeric = as.integer(TumorAdj_XIST$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(TumorAdj_XIST)[1])
+{
+  TumorAdj_XIST$Names[i] = substr(row.names(TumorAdj_XIST)[i],3,5)
+}
+
+#Creates a box plot of XIST gene expression data of all tumor adjacent samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/XIST_tumorADJ_expression_data.pdf", width=12, height=12)
+ggplot(TumorAdj_XIST, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="XIST Tumor Adjacent Samples Expression Data")
+dev.off()
+```
+
+```{r Plotting DDX3Y Adjacent Expression}
+#Creating tumor adjacent DDX3Y expression data
+TumorAdj_DDX3Y <- rbind(Females_TA_DDX3Y, Males_TA_DDX3Y)
+
+#Taking the log base 10 tumor adjacent DDX3Y expression data
+TumorAdj_DDX3Y$Expression <- log(as.numeric(TumorAdj_DDX3Y$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+TumorAdj_DDX3Y$SexNumeric = as.integer(TumorAdj_DDX3Y$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(TumorAdj_DDX3Y)[1])
+{
+  TumorAdj_DDX3Y$Names[i] = substr(row.names(TumorAdj_DDX3Y)[i],3,5)
+}
+
+#Creates a box plot of DDX3Y gene expression data of all tumor adjacent samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/DDX3Y_tumorADJ_expression_data.pdf", width=12, height=12)
+ggplot(TumorAdj_DDX3Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="DDX3Y Tumor Adjacent Samples Expression Data")
+dev.off()
+```
+
+```{r UTY Adjacent Plotting}
+#Creating tumor adjacent UTY expression data
+TumorAdj_UTY <- rbind(Females_TA_UTY, Males_TA_UTY)
+
+#Taking the log base 10 tumor adjacent UTY expression data
+TumorAdj_UTY$Expression <- log(as.numeric(TumorAdj_UTY$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+TumorAdj_UTY$SexNumeric = as.integer(TumorAdj_UTY$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(TumorAdj_UTY)[1])
+{
+  TumorAdj_UTY$Names[i] = substr(row.names(TumorAdj_UTY)[i],3,5)
+}
+
+#Creates a box plot of UTY gene expression data of all tumor adjacent samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/UTY_tumorADJ_expression_data.pdf", width=12, height=12)
+ggplot(TumorAdj_UTY, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="UTY Tumor Adjacent Samples Expression Data")
+dev.off()
+```
+
+```{r USP9Y Adjacent Plotting}
+#Creating tumor USP9Y expression data
+TumorAdj_USP9Y <- rbind(Females_TA_USP9Y, Males_TA_USP9Y)
+
+#Taking the log base 10 tumor USP9Y expression data
+TumorAdj_USP9Y$Expression <- log(as.numeric(TumorAdj_USP9Y$Expression)+0.01,10)
+
+#Creating new column that adds a 1 if the sample sex is Male and a 0 if the sample is female
+TumorAdj_USP9Y$SexNumeric = as.integer(TumorAdj_USP9Y$Sex=="M")
+
+#For loop that adds the sample numbers in a new column called "Names"
+for (i in 1:dim(TumorAdj_USP9Y)[1])
+{
+  TumorAdj_USP9Y$Names[i] = substr(row.names(TumorAdj_USP9Y)[i],3,5)
+}
+
+#Creates a box plot of USP9Y gene expression data of all tumor samples 
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/USP9Y_tumorADJ_expression_data.pdf", width=12, height=12)
+ggplot(TumorAdj_USP9Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="USP9Y Tumor Adjacent Samples Expression Data")
+dev.off()
+```

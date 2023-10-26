@@ -1,0 +1,593 @@
+---
+title: "DEG Viral Volcano Plots"
+author: "Annika Jorgensen"
+date: '2022-07-15'
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **R Markdown**
+
+Title: "DEG_Analysis Viral Breakdown Tumor vs Tumor Adjacent"  
+Author: Annika Jorgensen  
+Date: 05/22/2022  
+Purpose: This document is for the author to parse out the viral etiology tumor vs. tumor adjacent code from the "DEG_changed_comparison" file as well as demonstrate understanding of the code and theory
+
+### **Libraries**
+
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.   
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(psych)
+library(FSA)
+library(lattice)
+library(lsr)
+```
+
+## **Environment parameters**
+
+This next section of code is dedicated to the environmental parameters. Environmental parameters are a series of variables and other code that will help make the rest of the script be easier to make and run later on. 
+
+### **Working Directory** 
+
+A working directory is a code that iterates a file path on your computer th.t sets where the default location of any files that you read into R. Working directories work different in R files than R Markdowns. R Markdown files require directories to be defined at the end of each code chunk. Meaning from here on out you will see working directories being defined at the end of each code chunk. 
+```{r Working_Directory}
+setwd('~/Desktop/Research Projects/Liver Cancer Project')
+```
+
+### **Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by conversiting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+```
+
+**Read in Data**
+
+Read in unfiltered gene lists for volcano plots and reading in filtered data for GO/KEGG Analysis. 
+```{r read in data}
+
+M_HBV_unfiltered <-read.csv('~/Desktop/Research Projects/Liver Cancer Project/Gene lists/M_HBV_unfiltered.csv')
+M_HCV_unfiltered <-read.csv('~/Desktop/Research Projects/Liver Cancer Project/Gene lists/M_HCV_unfiltered.csv')
+M_Neither_unfiltered <-read.csv('~/Desktop/Research Projects/Liver Cancer Project/Gene lists/M_Neither_unfiltered.csv')
+
+DEGs_M_HBV <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_M_HBV.csv")
+DEGs_M_HCV <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_M_HCV.csv")
+DEGs_M_Neither <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_M_Neither.csv")
+
+F_HBV_unfiltered <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/F_HBV_unfiltered.csv")
+F_HCV_unfiltered <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/F_HCV_unfiltered.csv")
+F_Neither_unfiltered <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/F_Neither_unfiltered.csv")
+
+DEGs_F_HBV <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HBV.csv")
+head(DEGs_F_HBV)
+DEGs_F_HBV_relax_p <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HBV_relax_p.csv")
+head(DEGs_F_HBV_relax_p)
+
+DEGs_F_HCV <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HCV.csv")
+DEGs_F_HCV_relax_p <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HCV_relax_p.csv")
+
+DEGs_F_Neither <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_Neither.csv")
+DEGs_F_Neither_relax_p <-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_Neither_relaX_p.csv")
+```
+
+### **Data Visualization**
+This section creates Volcano plots for easy visualization of the gene lists.
+
+**Volcano Plots**
+Data used to create volcano plot of HBV tumor-tumor adjacent male sex.
+
+This plot uses the unfiltered Male HBV list and is plotting genes with a P value greater than or equal to 0.05 and with an absolute logFC of 2. The x and y coordinate plane limits are x (-15, 15) and y (0, 50). The dashed lines are significance thresholds and are placed a x= -2, x=2, and y=2.  
+  
+```{r Volcano Plot HBV}
+
+df <- data.frame(M_HBV_unfiltered$adj.P.Val, M_HBV_unfiltered$logFC, M_HBV_unfiltered$chr, M_HBV_unfiltered$GENEID, M_HBV_unfiltered$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+#dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+p <-ggplot(data=df, aes( x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)
+
+p
+p2 <- p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed") + geom_hline(yintercept= 2, linetype= "dashed") +  xlim(c(-15, 15)) + ylim(c(0, 50))
+
+p2
+```
+
+```{r Effect Size Plot}
+#ggplot(mu_diff, aes(x, y)) +        # ggplot2 plot with confidence intervals
+ # geom_point() +
+  #geom_errorbar(aes(ymin = lower, ymax = upper))
+
+#matching the male gene list to the female gene list and making sure they are the same size and plotting the log FC 
+#should see a linear trend 
+F_HBV_unfiltered <- F_HBV_unfiltered[match( M_HBV_unfiltered$gene_name, F_HBV_unfiltered$gene_name), ]
+identical(M_HBV_unfiltered$gene_name, F_HBV_unfiltered$gene_name)
+plot(M_HBV_unfiltered$logFC, F_HBV_unfiltered$logFC)
+
+# Calculate and display the regression line
+regression <- lm(M_HBV_unfiltered$logFC~F_HBV_unfiltered$logFC)
+abline(regression)
+```
+
+```{r Regression Calculation}
+
+#Show regression formula 
+print(regression)
+
+#Create data frame for sample data 
+#Sample data is data frame with columns of male logFC, male gene names, male p values, female log FC, female gene names, female p values respectively
+sample_data <- data.frame(M_HBV_unfiltered$logFC, M_HBV_unfiltered$gene_name, M_HBV_unfiltered$adj.P.Val, F_HBV_unfiltered$logFC, F_HBV_unfiltered$gene_name, F_HBV_unfiltered$adj.P.Val)
+
+#Calculate residuals
+sample_data$residuals <- residuals(regression)
+
+#Threshold of 0.5
+outlier_threshold <- 0.5
+
+#Print only name of outliers
+outlier <- sample_data[which(abs(sample_data$residuals) > 0.5), ]
+is.numeric(sample_data$residuals)
+
+sample_data
+
+#geneids <- data.frame(outlier$M_HBV_unfiltered.GENEID, outlier$F_HBV_unfiltered.GENEID)
+
+#write.csv(geneids, "geneids.csv")
+```
+
+This plot uses the unfiltered Female HBV list and is plotting genes with a P value greater than or equal to 0.05 and with an absolute logFC of 2. The x and y coordinate plane limits are x (-15, 15) and y (0, 50). The dashed lines are significance thresholds and are placed a x= -2, x=2, and y=2.
+```{r Volcano Female HBV}
+options(ggrepel.max.overlaps = Inf)
+df <- data.frame(F_HBV_unfiltered$adj.P.Val, F_HBV_unfiltered$logFC, F_HBV_unfiltered$chr, F_HBV_unfiltered$GENEID, F_HBV_unfiltered$gene_name)
+
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+gene1<- df[ which((df$name) == "MUC13"), ]
+gene2<- df[which((df$name) == "IGF2"), ]
+gene3<- df[which((df$name) == "MAGEA6"), ]
+gene4<- df[which((df$name) == "H19"), ]
+gene5<-  df[which((df$name) == "CDHR2"), ]
+
+forLabel<- data.frame(rbind(gene1, gene2, gene3, gene4, gene5))
+
+p<- ggplot(data=df, aes(x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)+theme_bw()
+
+p2 <-  p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed", size=1.5) + geom_hline(yintercept= 2, linetype= "dashed", size=1.5) +  xlim(c(-10, 10)) + ylim(c(0, 50))
+
+p3<- p2+ theme(legend.position = c(0.925,0.75)) + geom_point(aes(color=abs(logFC)>=2), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+#p4<-p3+theme(axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+p4<- p3+theme(axis.title = element_text(size=35), axis.text = element_text(size=35, color="black"), legend.title = element_text(size=35)) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+#p5<- p4+geom_label_repel(data=forLabel,aes(x = logFC, y = -log10(adj.P.Val), label=name), size=10, min.segment.length = 0, segment.color="black")
+  
+p4
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Volcanoplots/volcano_plot_FHBV.pdf", width=12, height=12)  
+p4
+dev.off()
+```
+
+```{r Male HBV}
+options(ggrepel.max.overlaps = Inf)
+df <- data.frame(M_HBV_unfiltered$adj.P.Val, M_HBV_unfiltered$logFC, M_HBV_unfiltered$chr, M_HBV_unfiltered$GENEID, M_HBV_unfiltered$gene_name)
+
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+gene1<- df[ which((df$name) == "MUC13"), ]
+gene2<- df[which((df$name) == "IGF2"), ]
+gene3<- df[which((df$name) == "MAGEA6"), ]
+gene4<- df[which((df$name) == "H19"), ]
+gene5<-  df[which((df$name) == "CDHR2"), ]
+
+forLabel<- data.frame(rbind(gene1, gene2, gene3, gene4, gene5))
+
+p<- ggplot(data=df, aes(x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)+theme_bw()
+
+p2 <-  p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed", size=1.5) + geom_hline(yintercept= 2, linetype= "dashed", size=1.5) +  xlim(c(-10, 10)) #+ ylim(c(0, 50))
+
+p3<- p2+ theme(legend.position = c(0.925,0.75)) + geom_point(aes(color=abs(logFC)>=2), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+#p4<-p3+theme(axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+p4<- p3+theme(axis.title = element_text(size=35), axis.text = element_text(size=35, color="black"), legend.title = element_text(size=35)) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+#p5<- p4+geom_label_repel(data=forLabel,aes(x = logFC, y = -log10(adj.P.Val), label=name), size=10, min.segment.length = 0, segment.color="black")
+  
+p4
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Volcanoplots/volcano_plot_MHBV.pdf", width=12, height=12)
+p4
+dev.off()
+```
+
+This plot uses the unfiltered Male HCV list and is plotting genes with a P value greater than or equal to 0.05 and with an absolute logFC of 2. The x and y coordinate plane limits are x (-15, 15) and y (0, 50). The dashed lines are significance thresholds and are placed a x= -2, x=2, and y=2. 
+```{r Volcano Plot Male HCV}
+options(ggrepel.max.overlaps = Inf)
+df <- data.frame(M_HCV_unfiltered$adj.P.Val, M_HCV_unfiltered$logFC, M_HCV_unfiltered$chr, M_HCV_unfiltered$GENEID, M_HCV_unfiltered$gene_name)
+
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+gene1<- df[ which((df$name) == "MUC13"), ]
+gene2<- df[which((df$name) == "IGF2"), ]
+gene3<- df[which((df$name) == "MAGEA6"), ]
+gene4<- df[which((df$name) == "H19"), ]
+gene5<-  df[which((df$name) == "CDHR2"), ]
+
+forLabel<- data.frame(rbind(gene1, gene2, gene3, gene4, gene5))
+
+p<- ggplot(data=df, aes(x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)+theme_bw()
+
+p2 <- p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed", size=1.5) + geom_hline(yintercept= 2, linetype= "dashed", size=1.5) +  xlim(c(-10, 10)) #+ ylim(c(0, 50))
+
+p3<- p2+ theme(legend.position = c(0.925,0.75)) + geom_point(aes(color=abs(logFC)>=2), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+#p4<-p3+theme(axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+p4<- p3+theme(axis.title = element_text(size=35), axis.text = element_text(size=35, color="black"), legend.title = element_text(size=35)) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+#p5<- p4+geom_label_repel(data=forLabel,aes(x = logFC, y = -log10(adj.P.Val), label=name), size=10, min.segment.length = 0, segment.color="black")
+  
+p4
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Volcanoplots/volcano_plot_MHCV.pdf", width=12, height=12)
+p4
+dev.off()
+```
+This plot uses the unfiltered Female HCV list and is plotting genes with a P value greater than or equal to 0.05 and with an absolute logFC of 2. The x and y coordinate plane limits are x (-15, 15) and y (0, 50). The dashed lines are significance thresholds and are placed a x= -2, x=2, and y=2. 
+```{r Volcano Plot Female HCV}
+options(ggrepel.max.overlaps = Inf)
+
+df <- data.frame(F_HCV_unfiltered$adj.P.Val, F_HCV_unfiltered$logFC, F_HCV_unfiltered$chr, F_HCV_unfiltered$GENEID, F_HCV_unfiltered$gene_name)
+
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+gene1<- df[ which((df$name) == "MUC13"), ]
+gene2<- df[which((df$name) == "IGF2"), ]
+gene3<- df[which((df$name) == "MAGEA6"), ]
+gene4<- df[which((df$name) == "H19"), ]
+gene5<-  df[which((df$name) == "CDHR2"), ]
+
+forLabel<- data.frame(rbind(gene1, gene2, gene3, gene4, gene5))
+
+p<- ggplot(data=df, aes(x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)+theme_bw()
+
+p2 <-  p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed", size=1.5) + geom_hline(yintercept= 2, linetype= "dashed", size=1.5) +  xlim(c(-10, 10)) + ylim(c(0, 50))
+
+p3<- p2+ theme(legend.position = c(0.925,0.75)) + geom_point(aes(color=abs(logFC)>=2), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+p4<- p3+theme(axis.title = element_text(size=35), axis.text = element_text(size=35, color="black"), legend.title = element_text(size=35)) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+#p4<-p3+theme(axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "log fold change", y="-log(FDR- adjusted p value)")
+
+#p5<- p4+geom_label_repel(data=forLabel,aes(x = logFC, y = -log10(adj.P.Val), label=name), size=10, min.segment.length = 0, segment.color="black")
+  
+p4
+
+pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Volcanoplots/volcano_plot_HCV.pdf", width=12, height=12)
+p4
+dev.off()
+```
+
+This plot uses the unfiltered Male Neither list and is plotting genes with a P value greater than or equal to 0.05 and with an absolute logFC of 2. The x and y coordinate plane limits are x (-15, 15) and y (0, 50). The dashed lines are significance thresholds and are placed a x= -2, x=2, and y=2. 
+```{r Volcano Plot Male Neither}
+
+df <- data.frame(M_Neither_unfiltered$adj.P.Val, M_Neither_unfiltered$logFC, M_Neither_unfiltered$chr, M_Neither_unfiltered$GENEID, M_Neither_unfiltered$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+#dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+p <-ggplot(data=df, aes( x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)
+
+p
+p2 <- p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed") + geom_hline(yintercept= 2, linetype= "dashed") +  xlim(c(-15, 15)) + ylim(c(0, 50))
+
+p2
+```
+
+This plot uses the unfiltered Female Neither list and is plotting genes with a P value greater than or equal to 0.05 and with an absolute logFC of 2. The x and y coordinate plane limits are x (-15, 15) and y (0, 50). The dashed lines are significance thresholds and are placed a x= -2, x=2, and y=2. 
+```{r Volcano Plot Female Neither}
+
+df <- data.frame(F_Neither_unfiltered$adj.P.Val, F_Neither_unfiltered$logFC, F_Neither_unfiltered$chr, F_Neither_unfiltered$GENEID, F_Neither_unfiltered$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+#dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+p <-ggplot(data=df, aes( x=logFC, y=-log10(adj.P.Val))) + geom_point(alpha=0.5)
+
+p
+p2 <- p+ geom_vline(xintercept=c(-2, 2), linetype= "dashed") + geom_hline(yintercept= 2, linetype= "dashed") +  xlim(c(-15, 15)) + ylim(c(0, 10))
+
+p2
+
+```
+
+Using the filtered gene list p value 0.05 of males and females separated by etiology I am comparing the amount of genes that coincide using a VennDiagram. I am also using a filtered female gene list with the p value relaxed to 0.1 and comparing to the filtered male gene list. These two Venn Diagrams show if any genes one the female list are excluded do to sample size. 
+```{r VennDiagram}
+library(VennDiagram)
+library(grDevices)
+
+venn1<- venn.diagram(List("Female"=DEGs_F_HBV$gene_name, "Male"=DEGs_M_HBV$gene_name),filename = NULL)
+grid.newpage()
+
+grid.draw(venn1)
+```
+
+```{r VennDiagram other}
+venn3<- venn.diagram(List("Female"=DEGs_F_HBV$gene_name, "Male"=DEGs_M_HBV$gene_name),filename = NULL)
+grid.newpage()
+
+grid.draw(venn3)
+#pdf(file="venn1.pdf")
+
+venn4<-venn.diagram(List("Female"=DEGs_F_HBV_relax_p$gene_name, "Male"=DEGs_M_HBV$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn4)
+#pdf(file="venn2.pdf")
+```
+
+```{r VennDiagram2}
+library(VennDiagram)
+library(grDevices)
+
+venn5<- venn.diagram(List("Female"=DEGs_F_Neither$gene_name, "Male"=DEGs_M_Neither$gene_name),filename = NULL)
+grid.newpage()
+
+grid.draw(venn5)
+#pdf(file="venn1.pdf")
+
+venn6<-venn.diagram(List("Female"=DEGs_F_Neither_relax_p$gene_name, "Male"=DEGs_M_Neither$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn6)
+#pdf(file="venn2.pdf")
+```
+
+```{r VennDiagram3}
+library(VennDiagram)
+library(grDevices)
+
+venn7<- venn.diagram(List("Female"=DEGs_F_HCV$gene_name, "Male"=DEGs_M_HCV$gene_name),filename = NULL)
+grid.newpage()
+
+grid.draw(venn7)
+#pdf(file="venn1.pdf")
+
+venn8<-venn.diagram(List("Female"=DEGs_F_HCV_relax_p$gene_name, "Male"=DEGs_M_HCV$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn8)
+#pdf(file="venn2.pdf")
+```
+
+```{r ggplot attempt HBV}
+#creating data frame for data in ggplot and renaming columns for ggplot 
+df <- sample_data
+colnames(df) <- c("M_logFC", "M_name", "M_adj.P.Val", "F_logFC", "F_name", "F_adj.P.Val","residuals")
+
+
+gene1<- df[ which((df$M_name) == "MUC13"), ]
+gene2<- df[which((df$M_name) == "IGF2"), ]
+gene3<- df[which((df$M_name) == "MAGEA6"), ]
+gene4<- df[which((df$M_name) == "H19"), ]
+gene5<-  df[which((df$M_name) == "CDHR2"), ]
+
+forLabel<- data.frame(rbind(gene1, gene2, gene3, gene4, gene5))
+
+#limiting the genes in the dataset to be significant with a p value of 0.05 
+df<-df[which(df$M_adj.P.Val<0.05 | df$F_adj.P.Val <0.05), ]
+ggp<- ggplot(df, mapping=aes(x=M_logFC, y= F_logFC)) + geom_point(alpha=0.5)+theme_bw()
+
+#getting coefficients from regression function to create line for ggplot
+regression <- lm(df$F_logFC~df$M_logFC)
+regression
+coeff<-coefficients(regression)
+coeff
+intercept<-coeff[1]
+slope<-coeff[2]
+
+#plotting with regression line
+
+ggp2 <- ggp+geom_abline(intercept=intercept, slope=slope, size=1.5)
+
+
+#plotting with color scheme. If residuals is >2.75, then the point will be colored red. 
+
+ggp3<- ggp2 +geom_point(aes(color=abs(residuals)>2.25), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+#plotting with gene label if the residual is >2.75, then the point will be labeled with the gene name. 
+ggp4 <- ggp3 +geom_label_repel(data=forLabel,aes(x = M_logFC, y = F_logFC, label=M_name), size=10, min.segment.length = 0, segment.color="black")
+
+ggp5<- ggp4+theme(legend.position = "none", axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "Male log(FC)", y="Female log(FC)")
+
+ggp5
+
+pdf("'~/Desktop/Research Projects/Liver Cancer Project/Figures/Regressionplots/effect_size_ggplot_HBV.pdf", width=12, height=12)
+ggp5
+dev.off()
+```
+
+```{r logFC change plot HBV}
+#plot with the log fold change difference of male log FC subtracted from female log FC
+df$logFC_difference <- abs(df$M_logFC)-abs(df$F_logFC)
+plot(df$logFC_difference)
+```
+```{r ggplot attempt logFC difference}
+#logFC_difference <- data.frame(df$logFC_difference)
+#colnames(logFC_difference)<-c("logFCdifference")
+#logFC_difference
+#ggp1<- ggplot(logFC_difference, )
+```
+
+```{r genelists male and female}
+#printing gene with logFC greater than 2 
+gene_names_M_HBV <- sample_data[which(abs(sample_data$M_HBV_unfiltered.logFC) > 2), ]
+gene_names_F_HBV <- sample_data[which(abs(sample_data$F_HBV_unfiltered.logFC) > 2), ]
+
+#printing out number of genes in list first output is the number of genes 
+
+dim(gene_names_M_HBV)
+dim(gene_names_F_HBV)
+
+write.csv(gene_names_M_HBV, "Regression_gene_lists_M_HBV.csv")
+write.csv(gene_names_F_HBV, "Regression_gene_lists_F_HBV.csv")
+
+```
+
+```{r Histogram}
+#histograms of residuals
+#should expect most of genes to be around 0
+hist(sample_data$residuals)
+```
+
+```{r Effect Size Plot HCV}
+#ggplot(mu_diff, aes(x, y)) +        # ggplot2 plot with confidence intervals
+ # geom_point() +
+  #geom_errorbar(aes(ymin = lower, ymax = upper))
+
+#matching the male gene list to the female gene list and making sure they are the same size and plotting the log FC 
+#should see a linear trend 
+F_HCV_unfiltered <- F_HCV_unfiltered[match( M_HCV_unfiltered$gene_name, F_HCV_unfiltered$gene_name), ]
+identical(M_HCV_unfiltered$gene_name, F_HCV_unfiltered$gene_name)
+plot(M_HCV_unfiltered$logFC, F_HCV_unfiltered$logFC)
+
+# Calculate and display the regression line
+regression <- lm(M_HCV_unfiltered$logFC~F_HCV_unfiltered$logFC)
+abline(regression)
+```
+
+```{r Regression Calculation HCV}
+
+#Show regression formula 
+print(regression)
+
+#Create data frame for sample data 
+#Sample data is data frame with columns of male logFC, male gene names, male p values, female log FC, female gene names, female p values respectively
+sample_data <- data.frame(M_HCV_unfiltered$logFC, M_HCV_unfiltered$gene_name, M_HCV_unfiltered$adj.P.Val, F_HCV_unfiltered$logFC, F_HCV_unfiltered$gene_name, F_HCV_unfiltered$adj.P.Val)
+
+#Calculate residuals
+sample_data$residuals <- residuals(regression)
+
+#Threshold of 0.5
+outlier_threshold <- 0.5
+
+#Print only name of outliers
+outlier <- sample_data[which(abs(sample_data$residuals) > 0.5), ]
+is.numeric(sample_data$residuals)
+
+#geneids <- data.frame(outlier$M_HBV_unfiltered.GENEID, outlier$F_HBV_unfiltered.GENEID)
+
+
+
+#write.csv(geneids, "geneids.csv")
+```
+
+```{r ggplot attempt}
+#creating data frame for data in ggplot and renaming columns for ggplot 
+df <- sample_data
+colnames(df) <- c("M_logFC", "M_name", "M_adj.P.Val", "F_logFC", "F_name", "F_adj.P.Val","residuals")
+
+gene1<- df[ which((df$M_name) == "MUC13"), ]
+gene2<- df[which((df$M_name) == "IGF2"), ]
+gene3<- df[which((df$M_name) == "MAGEA6"), ]
+gene4<- df[which((df$M_name) == "H19"), ]
+gene5<-  df[which((df$M_name) == "CDHR2"), ]
+
+forLabel<- data.frame(rbind(gene1, gene2, gene3, gene4, gene5))
+
+df<-df[which(df$M_adj.P.Val<0.05 | df$F_adj.P.Val <0.05), ]
+ggp<- ggplot(df, mapping=aes(x=M_logFC, y= F_logFC)) + geom_point()+theme_bw()
+
+#getting coefficients from regression function to create line for ggplot
+regression <- lm(df$F_logFC~df$M_logFC)
+regression
+coeff<-coefficients(regression)
+coeff
+intercept<-coeff[1]
+slope<-coeff[2]
+
+#plotting with regression line
+
+ggp2 <- ggp+geom_abline(intercept=intercept, slope=slope, size=1.5)
+
+
+#plotting with color scheme. If residuals is >2.75, then the point will be colored red. 
+
+ggp3<- ggp2 +geom_point(aes(color=abs(residuals)>2.25), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+#plotting with gene label if the residual is >2.75, then the point will be labeled with the gene name. 
+ggp4 <- ggp3 +geom_label_repel(data=forLabel,aes(x = M_logFC, y = F_logFC, label=M_name), size=10, min.segment.length = 0, segment.color="black")
+
+ggp5<- ggp4+theme(legend.position = "none", axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "Male log(FC)", y="Female log(FC)")
+
+ggp5
+pdf("~/R/effect_size_ggplot_HCV.pdf", width=12, height=12)
+ggp5
+dev.off()
+```
+
+```{r effect size HCV}
+ggp4
+```
+
+```{r logFC change plot}
+#plot with the log fold change difference of male log FC subtracted from female log FC
+df$logFC_difference <- abs(df$M_logFC)-abs(df$F_logFC)
+plot(df$logFC_difference)
+```
+
+```{r Histogram HCV}
+#histogram of residuals should expect for most samples to be around 0
+hist(sample_data$residuals)
+```
+
+```{r HCV genelists male and female}
+#printing gene with logFC greater than 2 
+gene_names_M_HCV <- sample_data[which(abs(sample_data$M_HCV_unfiltered.logFC) > 2), ]
+gene_names_F_HCV <- sample_data[which(abs(sample_data$F_HCV_unfiltered.logFC) > 2), ]
+
+#printing out number of genes in list first output is the number of genes 
+
+dim(gene_names_M_HCV)
+dim(gene_names_F_HCV)
+
+write.csv(gene_names_M_HCV, "Regression_gene_lists_M_HCV.csv")
+write.csv(gene_names_F_HCV, "Regression_gene_lists_F_HCV.csv")
+
+```
+
