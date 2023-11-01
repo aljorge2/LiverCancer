@@ -1,0 +1,7 @@
+"0","#changing Expression values to be numeric "
+"0","dataFiltered$Expression<- as.numeric(dataFiltered$Expression)"
+"0",""
+"0","#plotting all samples with TSPY1 expression"
+"0","expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+"
+"0","  geom_point(aes(color=Names))"
+"0","expressionPlot"
