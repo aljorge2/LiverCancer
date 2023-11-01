@@ -1,0 +1,855 @@
+---
+title: "Carpentry Rstudio CURE"
+author: "Annika Jorgensen"
+date: "2023-10-02"
+output: html_document
+---
+Taken from carpentry "R for Reproducible Scientific Analysis
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r pwd}
+setwd('/Users/annikajorgensen/Desktop/ResearchProjects/CapentryTest')
+```
+
+# Episode 1 
+
+### Arithmetic
+
+Order of operations for R is the same as grade school 
+1) Parentheses ()
+2) Exponents ^ or **
+3) Multiply *
+4) Divide /
+5) Add +
+6) Subtract -
+
+Answers to arithmetic problems will print out with [1] inf front. [1] is the index of the first element of the line 
+```{r calculator}
+3+5*2 # will print out [1] 13 
+
+(3+5)*2 # OUTPUT: [1] 16
+
+# next three lines all print out [1] 23 
+
+# this one is hard to read
+(3+(5*(2^2))) 
+
+# clear but confusing if you don't remember the rules
+3+5*2^2 
+
+# if you forget some rules, this may help
+3+5*(2^2) 
+
+2/10000 # OUPUT: 2e-04
+
+#scientific notation. 
+10e1 #OUPUT: 100 
+
+#fyi this scientific notation format is common and works in other coding languages (e.g. python MATLAB julia)
+```
+
+***
+
+### Mathematical Functions
+
+R has common mathematical functions such as trigonometry functions and logarithms. 
+```{r Functions}
+#returns an absolute filepath 
+getwd() 
+
+#using built-in trig and log functionz
+sin(1)
+log(1)
+
+#base-10 log
+log10(10) 
+
+#e^(1/2)
+exp(0.5) 
+```
+
+Things to note:
+Rstudio has autocompletion ability. 
+
+If you want a help page type ? before the name of a command. In Rsudio this will open the "Help" panel. If using R in terminal the help page will open in browser.
+
+***
+
+###Comparing things
+
+Showing inequality and equality commands 
+```{r comparing}
+#equality (read as "is equal to")
+1==1 # OUTPUT: [1] TRUE
+
+#inequality (read as "is not equal to")
+1!=2  #OUTPUT: [1] TRUE
+
+#less than
+1 < 2 #OUTPUT: [1] TRUE
+
+#less than or equal to
+1 <= 1  #OUTPUT: [1] TRUE
+
+#greater than 
+1 >0  #OUTPUT: [1] TRUE
+
+ #greater than or equal to 
+1 >= -9 #OUTPUT: [1] TRUE
+```
+
+Things to note:
+Never use "==" to compare two numbers unless that are integers (certain data type) because computers may only represent decimal number with a certain degress of precision. Instead you should use the all.equal function.
+
+***
+
+### Variables and assignment 
+
+We can store values in variables using the assignment operator "<-". The variable will appear in the Environment tab in the top right panel. The variable can be used in place of the value. 
+
+Variable x below contains the value 1/40. More precisely, the stored value in the decimal approximation of the fraction called a floating point number. 
+
+Floats are data type that are positve and negative numbers with a decimal point. Floating point numbers are represented base two (becuase all code is in binary) so many numbers (such as 0.3333333) that are supposed to go on forever must be truncated with introduces some error into computation.
+
+```{r Variables}
+#variable x contains the value 0.025
+x <- 1/40 
+
+#outputs variable x 
+x #OUTPUT: [1] 0.025
+```
+
+Variables can be reassigned and you can see the updates in the Environment tabs
+```{r Variable}
+#variable x used in place of 0.025
+log(x) 
+
+#variables can be reassigned
+x<- 100 
+
+#assignment values can contain the variable being assigned
+x<- x+1 
+y<- x*2
+```
+
+Things to note-- Formatting variables:
+
+Variables can contain letters, numbers, underscores and periods
+
+Variables cannot contain spaces 
+
+Variables must start with a letter or a period followed by a letter.
+
+You cannot start a variable with a number or an underscore 
+
+Variables beginning with a period are hidde variables 
+
+There are different variable naming conventions these include:
+
+* periods.between.words
+* underscores_between_words
+* **camelCaseToSeparateWords** -- what I should start using
+  
+It is possible to use = operator for for variable assignment, but it is less common (so don't). Most importantly, BE CONSISTENT WITH VARIABLE ASSIGNMENT CONVENTION.
+
+***
+
+### Vectorization 
+
+R is _vectorized_ meaning that function are variables are able to have vectors as values. A vector in R is a set of values of the same data type arranged in a certain order.
+
+```{r Example}
+
+#example vector
+1:5 # OUTPUT: [1] 1 2 3 4 5
+
+#exponentiates each element
+2^(1:5) # OUPUT: [1] 2 4 8 16 32
+```
+
+***
+
+### Manging Environment 
+
+Useful commands to interact with R session and evironment 
+
+```{r env}
+
+#lists all variables and functions stored in global environment (i.e. your working R session)
+
+ls() #OUTPUT: "x" "y"
+```
+
+Like in the shell, ls will hide any hidden variables or functions (those starting with a .) by default. To list those, type ls(all.names=TRUE) instead. 
+```{r unhide}
+#creating hidden variable
+
+.xx<- 303
+
+#list all variables including hidden ones
+ls(all.names=TRUE) #OUPUT: ".xx" "x" "y"
+```
+
+Parantheses are needed to call functions. Without parentheses are bunch of code is listed out
+
+```{r ls code}
+#list objects in your environment
+ls 
+```
+
+The rm object can be used to deleted objects. If you havw to delete all objects in your environment you can use combination of ls and rm.  
+```{r rm}
+#deletes variable "x"
+rm(x)
+
+#deletes all objects in environment
+rm(list=ls()) #you must use the = sign instead of <-
+```
+
+##### Warnings vs. Errors
+
+Errors are thrown when R cannot proceed with a calculations. Warnings usually mean that the function has run, but it hasn't worked as expected. In both cases, a message will be printed out that gives you clues as to how to fix the problem. 
+
+If the message is confusing (it usually is) type it into google and normally something comes up that can help you.
+
+### R packages
+
+Packages are ways to add functions to R. You can write one yourself or obtain one from CRAN. CRAN (comprehensive R archive network) hosts over 10,000 packages. 
+
+You can see what packages are installed by typing installed.packages()
+
+You can install a package by typing install.packages("packagename") where <<packagename>> is the name of the package. 
+
+You can update installed packages by typing update.packages()
+
+You can remove a package with remove.packages("packagename")
+
+You can make a package available for use with library("packagename")
+
+### Examples with variables
+
+Look at the code chunk below for an example. 
+
+QUESTION: What will be variable values be? Compare the variable mass to age.
+
+```{r ExampleVariable}
+
+# Making a variable titled mass
+mass <- 47.5
+
+#Making a variable titled age
+age<-122
+
+#multiplying mas by 2.3
+mass <-mass*2.3
+
+#subtracting 20 from age
+age<- age-20
+
+#outputting what mass is 
+mass #OUTPUT: 109.25
+
+#outputting what age is 
+age #OUTPUT:102
+
+#Asking if mass is greater than or equal to age
+mass >= age #OUTPUT: [1]TRUE
+```
+
+QUESTION: Delete variable mass and age
+```{r DeleteVariable}
+#Delete variable mass and age
+rm(mass,age)
+```
+
+QUESTION: Install packages ggplot2, plyr, gapminder
+
+Example code not included in a code block for knitting purposes.
+
+
+#Installs ggplot2
+install.packages("ggplot2")
+
+#Installs plyr
+install.packages("plyr")
+
+#Installs gapminder
+install.packages("gapminder")
+
+#Alternate solution to question that installs with single command
+install.packages(c("ggplot2", "plyr", "gapminder"))
+
+# Episode 2
+
+###  Management with Rstudio
+
+Creating a self contained project can be done using the following steps
+
+1) Click the “File” menu button, then “New Project”.
+2) Click “New Directory”.
+3) Click “New Project”.
+4) Type in the name of the directory to store your project, e.g. “my_project”.
+5) If available, select the checkbox for “Create a git repository.”
+6) Click the “Create Project” button.
+
+This creates a directory that stores all of your files needed for the project. If you want to open the project, do the following steps
+
+1) Exit RStudio.
+2) Navigate to the directory where you created a project in Challenge 1.
+3) Double click on the .Rproj file in that directory.
+
+Tips on Practices for Scientific Computing 
+
+1) Put each project in its own directory, which is named after the project.
+2) Put text documents associated with the project in the "doc" directory.
+3) Put raw data and metadata in the "data" directory, and files generated 
+ during cleanup and analysis in a "results" directory.
+4) Put source for the project’s scripts and programs in the "src" directory, and programs brought in from elsewhere or compiled locally in the "bin" directory.
+5) Name all files to reflect their content or function.
+
+The following code chunk is an example of importing and understanding the gapminder metadata.
+```{r gapminder}
+#Importing "gapminder" metadata
+gapminderData<- read.csv("/Users/annikajorgensen/Desktop/ResearchProjects/CapentryTest/data/gapminder_data.csv")
+
+dim(gapminderData)
+```
+
+# Episode 3
+
+### Getting Help
+
+There are two ways of getting help with functions 
+
+1) ?function_name
+2) help(function_name)
+
+The output will be in the panel in the lower right corner. Within the help page you can highlight code in the Examples with cntrl+return and run the examples in the Rstudio console. 
+```{r help}
+#getting help with the "write.csv" command 
+?write.csv #OUTPUT: write.table help page because similar applicability
+```
+
+You can also seek help with special operators by using quotes and backticks.
+
+```{r help operators}
+
+#seeks help with the <- operator
+?"<-"
+
+#seeks help with the == operator
+?"==" 
+```
+
+You can seek help with functions if you do not know the entire function by completing ??function_name. This is called a fuzzy search. An example is shown below
+```{r help functions}
+
+##seeking help on a function with the word set in the name
+??set 
+```
+
+If you have no idea where to being you can use the CRAN task views which is a maintained list of packages grouped into fields. 
+
+If you want help from people google your code and Stack Overflow probably has your answer. If not, you can ask a question. The following commands are helpful to make your code easy to deal with. 
+
+?dput will dump the data you're working with into a format that is easy for others to copy and paste. 
+
+sessionInfo() will prints out current version of R as well as any packages you have loaded. This helps others reproduce results and debug
+
+```{r peers}
+
+#prints out help page of command dput
+?dput 
+
+#prints out current version of R
+sessionInfo()
+```
+
+QUESTION: What kind of vector do you expect will be created if you evaluate the following? (HINT: look at help page for c function)
+
+```{r help examples}
+?c
+#numeric vector because all elements are numeric
+c(1,2,3)  
+
+ #character vector because all values are characters 
+c("d","e","f")
+
+#character vector because there are characters so numeric values are "coerced" into character values
+c(1,2,"f")
+```
+
+QUESTION: What is the difference between the sep and collapse arguments in the past function? (HINT: look at help page)
+
+```{r paste help}
+help(paste)
+```
+
+paste is a function that concatenates vectors after converting to character.
+
+sep is a argument that is a character string that separates the terms
+
+collapse is an optional character string that separates the results
+
+So, sep specifies what string is used between the concatenated terms (default is a space) and collapse specifies how the elements are collapsed together (how the elements become a single string)
+
+See the examples below better understanding.
+
+```{r paste examples}
+
+#paste function with vector ("a" "b") concatenated with character "c" with the sep argument being the default space
+paste(c("a","b"), "c") #OUTPUT: [1] "a c" "b c"
+
+#paste function with vector ("a" "b") concatenated with character "c" and character "," with the sep argument being the default space
+paste(c("a","b"), "c", ",") #OUPUT: [1] "a c ," "b c ,"
+
+#paste function with vector ("a" "b") concatenated with character "c" with the sep argument being character ","
+paste(c("a","b"), "c", sep = ",") #OUTPUT: [1] "a,c" "b,c"
+
+#paste function with vector ("a" "b") concatenated with character "c" with collapse argument being character |
+paste(c("a","b"), "c", collapse = "|") #OUTPUT: "a c|b c"
+
+#paste function with vector ("a" "b") concatenated with character "c" with sep argument "," and collapse argument "|" 
+paste(c("a","b"), "c", sep = ",", collapse = "|") #OUTPUT: "a,c|b,c"
+```
+
+QUESTION: use help to find a function that loads data from tabular file with columns delimited with "\t" (tab) and the decimal point is a "." (period). HINT: use ??"read table"
+
+```{r read table}
+??"read table"
+```
+
+The standard R function for reading tab-delimited files with a period decimal separator is read.delim(). You can also do this with read.table(file, sep="\t") (the period is the default decimal separator for read.table()), although you may have to change the comment.char argument as well if your data file contains hash (#) characters.
+
+# Episode 4
+
+### Data Structures
+
+To better understand data structures we are going to make a toy dataset called "feline-data.csv". 
+
+```{r toy}
+
+#creates data frame of 3 rows and 3 columns 
+cats <- data.frame(coat=c("calico","black","tabby"), weight=c(2.1,5.0,3.2),likes_string=c(1,0,1))
+
+#writes cat to a csv file titled feline-data.csv the row.names= FALSE argument means that the first vector is going to become the rownames meaning that rows are now titles "calico","weight","likes_string". The default is TRUE and it means they add a column indexing the rows.
+write.csv(x=cats,file="data/feline-data.csv",row.names=FALSE)
+```
+
+If we wanted to load the feline-data file into R it would look like this
+```{r read csv}
+#loading in a csv file titled feline-data and outputting the file into a variable called cats
+cats <- read.csv(file = "data/feline-data.csv")
+
+#printing variable cats
+cats #OUTPUT: 3 row 3 column data frame shown above
+```
+
+##### Reading Data
+
+The read.table function is used for reading in tabular data stored in a text file where the columns of data are separated by punctuation characters such as CSV files (csv = comma-separated values). Tabs and commas are the most common punctuation characters used to separate or delimit data points in csv files. For convenience R provides 2 other versions of read.table. These are: read.csv for files where the data are separated with commas and read.delim for files where the data are separated with tabs. Of these three functions read.csv is the most commonly used. If needed it is possible to override the default delimiting punctuation marks for both read.csv and read.delim.
+
+##### Factors
+
+Text data used to be automatically interpreted into factors (we will understand these later). However, new versions of R read in text as character. Here is the way to check if R has automatically created factors and if so how to convert them to "character format using the example of cats
+
+1) Check the data types of input via str(data_variable)
+2) In the output, look at the codes after the colons (should be three letters long). If you see only "num" and "chr", you can continue with the lesson and skip rest of the steps. If you see "fct" continue to step three. 
+3) To prevent R from automatically creating "factor" data type the command options(stringsAsFactors = FALSE) 
+4) Re-read the the data back in to see that the change has taken effect
+5) This option must be set every time you restart R. To not forget, include it any scripts before reading in data
+6) For R versions greater than 4.0.0, text data is no longer converted to factors anymore.
+
+```{r checking}
+#displays the internal structure cat data frame
+str(cats)
+```
+
+No factors are seen so we can move on. 
+
+##### Exploring Datasets
+
+The $ operator extracts columns.
+
+```{r dollarsign}
+# extracts the "weight" column from "cats" data frame
+cats$weight #OUTPUT: [1] 2.1 5.03.2
+
+#extracts coat column from "cats" data frame
+cats$coat #OUPUT: [1] "calico" "black" "tabby
+```
+
+Arithmetic operations can be done on the columns
+```{r addition}
+#adds 2 to the weight column of cat data frame
+cats$weight +2 #OUTPUT: [1] 4.1 7.0 5.2
+```
+
+The paste function can also be used columns
+```{r paste coat}
+#concatenates the string "My cat is" with the elements of the coat column in the data frame cats
+paste("My cat is", cats$coat)
+```
+
+##### Data Types
+
+Five types of data double, integer, complex, logical and character. For historic reasons, double is also called numeric. To see what type of data something is we use typeof()
+
+```{r type of cat}
+#seeing data type of column weight in data frame cats
+typeof(cats$weight) #OUPUT: [1] "double"
+
+#seeing data type of 3.14
+typeof(3.14) #OUTPUT: [1] "double"
+
+#seeing data type of 1L
+typeof(1L) #OUTPUT: [1] "integer" 
+```
+The L suffix in 1L forces the number to be an integer, since by default R uses fload numbers
+
+```{r datatyping}
+#seeing data type of 1+1i
+typeof(1+1i) #OUTPUT: [1] "complex"
+
+#seeing data type of TRUE
+typeof(TRUE) #OUTPUT: [1] "logical"
+
+#seeing data type of "banana"
+typeof("banana") #OUTPUT: [1] "character"
+```
+
+Here is a new "cat" dataframe with an additional row. 
+```{r version2}
+#creates a dataframe with four rows and three columns
+cats <- data.frame(coat=c("calico","black","tabby","tabby"), weight=c(2.1,5.0,3.2,"2.3 or 2.4"), likes_string=c(1,0,1,0))
+
+#seeing data type of weight column
+typeof(cats$weight)
+
+str(cats)
+```
+Notice how that the additional row turned the data type from double to character. This means that if we tried to do arithmetic operations on the column it would through an error.
+
+A given column in a data frame cannot be composed of different data types. So, the "weight" column in does not read everything as a double therefore it changes to accommodate the different data types.
+
+When R reads a csv file, it reads it as a data frame. Thus when we loaded the cats csv file, it was stored as a data frame. We can see this in the first row that is written by the str() function.
+
+Data frames are composed of rows and columns where each column has the same number of rows. Different columns can be different data type, but everything in a give columns needs to be the same type.
+
+```{r old cats}
+cats <- read.csv(file = "data/feline-data.csv")
+```
+
+##### Vectors and Type Coercion
+
+One common data structure is called a vector. It is an ordered list of things. Everything MUST be in the same data type. The default data type is logical. You can declare an empty vector of whatever data type you like 
+```{r vector example}
+#creating a vector with three elements
+myVector <- vector(length=3)
+
+#outputting "myVector"
+myVector #OUTPUT: [1] FALSE FALSE FALSE
+```
+
+```{r vector example1}
+#creating vector with three elements data type character
+newVector<- vector(mode="character",length=3)
+
+#outputting "newVector"
+newVector #OUPUT: [1] "" "" ""
+```
+
+You can check if something is a vector using the str() command
+```{r checking for vector}
+#checking if "newVector" is a vector
+str(newVector) #OUPUT: chr [1:3] "" "" ""
+```
+
+The first part of the output indicates that the data type found in the vector (in this example the output is character). 
+
+The second part indicates that number of things in the vector via the indexes of the vector. In our example [1:3] means that there are three things in the vector.
+
+The final part is showing examples of what is actually in the vector. In this example it is showing empty character strings. 
+
+Another example can be shown with the column cats$weight
+
+```{r vectorCat}
+str(cats$weight)
+```
+
+So the weight column in the cats data frame is a vector! The elements are numeric (double). The are three elements which are 2.1, 5, and 3.2 respectively. 
+
+It is important to note that this vector is a column of a data frame. This fact is why R forces elements in a column to be the same data type. 
+
+##### Combining Vectors
+
+If you want to make a vector with explicit contents you can use the combine function:
+
+```{r combine function}
+#creating a 3 element numerical vector
+combineVector <- c(2,6,3)
+
+#printing "combineVector" 
+combineVector #OUTPUT [1] 2 6 3
+```
+
+When R encounters a mix of data type that are combined into a single vector is will force them all to be the same type. This is called type coercion and it can be the source of a lot of heartache. Here is an example
+
+```{r heartache}
+#creating a three element vector with multiple data types
+quizVector<- c(2,6,"3") #OUTPUT:[1] 2 6 3
+
+#printing quizVector
+quizVector
+```
+
+In this example we attempted to create a vector with two numerical elements and one character element. However, R coerced the two elements to become character elements. Consider these next examples:
+
+```{r coercion}
+#creating a two element vector with multiple data types
+coercionVector <- c("a", TRUE) 
+
+#printing "coercionVector"
+coercionVector #OUTPUT: "a" "TRUE"
+
+#creating a two element vector with multiple data types
+coercedAgain <- c(0, TRUE)
+
+#printing "coercedAgain"
+coercedAgain #OUTPUT: [1] 0 1
+```
+
+Notice in the first case the logical data type was coerced into a character string. In the second example, the logical data type was coerced into numeric type. 
+
+The hierarchy for type coercion are: logical --> integer --> double (numeric) --> complex --> character. The --> means "transformed into". So, logical --> integer reads logical is transformed into integer. 
+
+Tip: you can recognize character vectors be the "quotes" that enclose elements when they are printed. 
+
+If you want to force coercion outside the hierarchy you can use "as." functions. Say you have this character type vector
+```{r against flow}
+#creating three element character type vector
+characterVector <- c("0", "2", "4")
+
+#outputting "characterVector" 
+characterVector #OUTPUT: [1] "0" "2" "4"
+```
+The vector is all character data type and you want the vector to be a double ("numeric") data type. You can force coercion into double with the command "as.double"
+
+```{r asdouble}
+#changing to double data type
+characterVector<- as.double(characterVector)
+
+#printing character Vector
+characterVector #OUTPUT: [1] 0 2 4
+```
+Notice the quotations are gone. Now say you want to force the vector to be the logical data type. 
+
+```{r aslogical}
+#changing to logical data type
+characterVector <- as.logical(characterVector)
+
+#printing character Vector
+characterVector #OUTPUT: [1] FALSE TRUE TRUE
+```
+
+The vector now looks radically different from when the data type was character. This is why it is so important to make sure all your vectors and data frames have all the elements in the correct types. Additonally, if something is not looking right or commands are not functioning as they should it may be because of type coercion. 
+
+However, type coercion can be used to our advantage. Consider the column "likes_string" in the "cats" data frame. The 1s and 0s in the column represent TRUE and FALSE. So, we can use the logical data type here. So we can coerce this column to be logical using the as.logical function
+
+```{r coercing cats}
+#coercing the "likes_string" column to be logical
+cats$likes_string <- as.logical(cats$likes_string)
+
+#outputting likes_string
+cats$likes_string
+```
+
+##### Copying Code Template 
+
+We are copying this template and filling in the necessary information 
+
+0) Read data feline-data_2.csv (not available but I made the data that should be imported )
+
+1) Print the data 
+
+2) SHow and overview of the table with all data type ___(cats)
+
+3) The "weight column has the incorrect data type __ The correct data type is ___
+
+4) Correct the 4th weight data point with the mean of cats$weight[4] <- 2.35 Print again to see the effect
+
+5) Covert the weight to the right data type
+
+6) Caluate the mean to test yourself mean(cats$weight)
+
+7) If you see a mean value (not NA) you did it correct
+
+
+
+```{r code template}
+#Read in data
+cats <- data.frame(coat=c("calico","black","tabby","tabby"), weight=c(2.1,5.0,3.2,"2.3 or 2.4"), likes_string=c(1,0,1,0))
+
+#Print data
+cats
+
+#Show overview of table with all data types
+str(cats)
+
+#Weight column has incorrect data type of character 
+#The correct data type is double or numeric
+
+#Adjusting fourth weight column data point with mean of 2.3 and 2.4
+cats$weight[4] <- 2.35
+
+#printing cats to see effect
+cats
+
+#Converting weight column to numeric data type
+cats$weight <- as.numeric(cats$weight)
+
+#Calculating mean of weight column to see if converting worked
+mean(cats$weight)
+
+#Conversion worked!
+```
+
+##### Basic Vector Functions
+
+The combine function c() can append these to an existing vector
+```{r append}
+#creating a two element vector
+abVector <- c("a", "b")
+
+#printing "abVector"
+abVector
+
+#creating three element vector
+combineExample<- c(abVector,"SWC")
+```
+
+A vector can also be a series of numbers
+```{r Series}
+#making a integer vector that is the number series 1 through 10
+mySeries<- 1:10
+```
+
+The command seq() can also make a series of numbers
+```{r Seq}
+#making a series of numbers 1 through 10 
+seq(10)
+```
+
+If you want to specify the interval between numbers in a series you can use the by argument in the seq() command
+```{r by seq}
+seq(1,10,by=0.1)
+```
+
+If you want to see the beginning of a vector you can use the head command
+```{r head}
+#creating an integer vector with numbers 20 through 200
+seqExample<- 20:200
+head(seqExample)
+```
+
+If you want to specify how many elements to see you can use the n= argument
+```{r head n}
+#seeing the first two elements in the seqExample vector
+head(seqExample,n=2)
+```
+
+If you want to see the end of a vector you can use the tail command. You can also specify how many elements to see
+```{r tail}
+#seeing the last four elements in the seqExample vector
+tail(seqExample, n=4)
+```
+
+If I want to see how many elements a vector has I can use the length command
+```{r length vector}
+#seeing how many elements the seqExample vector has 
+length(seqExample)
+```
+
+If I want to retrieve specific elements I can use bracket notation
+```{r brackets}
+#creating a variable that houses the first element of seqExample vector
+element01<- seqExample[1]
+
+#printing out element01 variable
+element01
+```
+
+I can change a single element by using bracket notation and then using an arrow (similiar to how you create a variable)
+```{r changing element}
+#changing first element in seqExample vector to 30 
+seqExample[1] <- 30
+
+#printing seqExample
+seqExample
+```
+
+EXAMPLE: Make a vector that houses numbers 1 through 26 and then multiple the vector by two
+
+```{r vector multiply}
+#creating vector with numbers 1-26
+multiplyVector<- 1:26
+multiplyVector
+
+#multiply vector by 2
+multiplyVector<-multiplyVector*2
+multiplyVector
+```
+
+##### Lists
+
+A list is another data structure that you can put any data type into (unlike vectors)
+```{r lists}
+#creating four element list
+listExample <- list(1,"a",TRUE,1+4i)
+
+#printing listExample
+listExample
+```
+
+We can see all of the different data types housed in a list when printing the object structure with the str() command
+```{r str list}
+#printing listExample object structure
+str(listExample)
+```
+
+If I want to retrieve one element in a list I use double brackets
+```{r second element retrival}
+#printing the second element in listExample
+listExample[[2]]
+```
+
+Elements in a list can also have names. You name the elements through setting the name equal to the elements.
+```{r naming list elements}
+#creating three element list 
+listExample2<- list(title="Numbers", numbers=1:10, data=TRUE)
+
+#printing listExample2
+listExample2
+```
+
+This named list allows use to access the elements in a new way through the new of a dollar sign
+```{r named list}
+listExample2$title
+```
+
+##### Names
+
+With names, we can give meaning to elements. It is the first time that we do not only have the data, but also explaining information. It is metadata that can be stuck to the object like a label. In R, this is called an attribute. Some attributes enable us to do more with our object, for example, like here, accessing an element by a self-defined name.
+
+If I want to geenerate a named vector it is quite similiar to generating a named list. 
+
+```{r named Vector}
+#generating 3 element named vector
+pizzaPrice <- c(pizzasubito = 5.64, pizzafresh = 6.60, callapizza = 4.50)
+```
+
+```{r testttt}
+dog<- c("d", "o", "g")
+```

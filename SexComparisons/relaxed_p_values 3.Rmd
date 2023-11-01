@@ -1,0 +1,237 @@
+---
+title: "Relax p value results"
+author: "Annika Jorgensen"
+date: "6/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **R Markdown**
+
+Title: "DEG_Analysis Relaxed p values"  
+Author: Annika Jorgensen  
+Date: 05/22/2022  
+Purpose: This document is for the author to parse out the female tumor vs. tumor adjacent code from the "DEG_changed_comparison" file as well as demonstrate understanding of the code and theory
+### **Libraries**
+
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.   
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(data.table)
+
+setwd('~/R')
+```
+
+## **Environment parameters**
+
+This next section of code is dedicated to the environmental parameters. Environmental parameters are a series of variables and other code that will help make the rest of the script be easier to make and run later on. 
+
+### **Working Directory** 
+
+A working directory is a code that iterates a file path on your computer th.t sets where the default location of any files that you read into R. Working directories work different in R files than R Markdowns. R Markdown files require directories to be defined at the end of each code chunk. Meaning from here on out you will see working directories being defined at the end of each code chunk. 
+```{r Working_Directory}
+setwd('~/R')
+```
+
+### **Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by conversiting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+setwd('~/R')
+```
+
+### **Read in data**
+
+This code is where you read in all the csv files from previous DEG analysis that are going to be used in later analysis 
+
+```{r Reading data p_easy females}
+
+p_easy_female<- fread("~/R/DEGs_F_relax_p.csv", row.names=1)
+row
+head(p_easy_female)
+```
+
+
+```{r Reading data males}
+males<- fread("~/R/Male_all_DEGs.csv")
+head(males) 
+```
+
+### **Data Visualization**
+
+This section creates Volcano plots for easy visualization of the gene lists.
+
+**Volcano Plot Object**
+This code chunk is developing the plot object for a volcano plot of female tumor vs. tumor adjacent samples. 
+```{r Female Volcano Plot object}
+# ===========================================
+#Volcano plot of female p_easy tumor vs tumor-adjacent
+# ===========================================
+
+df <- data.frame(p_easy_female$adj.P.Val, p_easy_female$logFC, p_easy_female$chr, p_easy_female$GENEID, p_easy_female$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.1),]$id
+
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+```
+
+***Volcano Plot***
+This code chunk plots the female tumor vs. tumor adjacent volcano plot. 
+```{r Female Volcano Plot}
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 50)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10)) 
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.1 & abs(logFC)>=2)
+```
+
+***Significance Thresholds***
+This code chunk is setting the significance thresholds for the volcano plot. The thresholds can be seen via dotted lines on the graph. 
+```{r Significance Thresholds}
+# Adding lines for significance thresholds
+pdf("~/R/Volcano_plot_p_easy_females.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+#dev.off()
+```
+
+***Venn Diagram***
+
+In this code chunk two Venn Diagrams are made. The commented out sections are the original code sections. The first two sections are creating the Venn Diagrams. Given that I have a different working directory and am doing this is an RMD file not an R file. I rewrote the code to create the Venn Diagrams and output them into the RMD file which you see below. 
+
+The third section is inputting data from a CSV file. I do not have the said CSV files so I have commented these sections out. These samples show the overlap between male and female samples.
+```{r VennDiagram}
+library(VennDiagram)
+library(grDevices)
+#venn.diagram(List("Female"=DEGs_F$gene_name, "Male"=DEGs_M$gene_name),  filename = "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Overlap_DEGs.png")
+
+#venn.diagram(List("Female"=DEGs_F_relax_p$gene_name, "Male"=DEGs_M$gene_name),  filename = "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Overlap_DEGs_Frelaxp.png")
+
+#write.csv(DEGs_F, "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Female_all_DEGs.csv")
+#write.csv(DEGs_M, "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Male_all_DEGs.csv")
+
+
+venn2<-venn.diagram(List("Female"=p_easy_female$gene_name, "Male"=males$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn2)
+pdf(file="venn2.pdf")
+dev.off()
+```
+
+```{r Enriched Pathways females v. males}
+# ===================================
+# Enriched pathways males vs. females
+# ===================================
+
+#path <- "~/3.0 Hasting Research/Liver Cancer Analysis/DEGs/DEGs_newcounts_Salmon_batchMD1cov_fpkm05_HBVAdjacent_M_vs_HBVAdjacent_F_fdr1_lfc0.txt"
+
+#Do not have appropriate files using old files for this 
+degResult_genes <- p_easy_female
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+head(degResult_genes)
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label because it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+***GO/KEGG Analysis Female tumor vs. tumor-adjacent***
+```{r DEG result issues part 2}
+degResult <- p_easy_female
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+pdf("~/R/Goplot_all__p_easy_female.pdf", width=12, height=12)
+goplot(ego)
+#dev.off()
+pdf("~/R/dotplot_all_female.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+#dev.off()
+```
+
+

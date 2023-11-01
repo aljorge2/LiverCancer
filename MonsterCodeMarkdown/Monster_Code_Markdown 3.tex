@@ -1,0 +1,644 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\title{Code Monster Markdown}
+\author{}
+\date{\vspace{-2.5em}}
+
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Code Monster Markdown},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+
+\begin{document}
+\maketitle
+
+\hypertarget{markdown}{%
+\subsection{'\,'\,'\,'markdown}\label{markdown}}
+
+\hypertarget{r-markdown}{%
+\section{\texorpdfstring{\textbf{R
+Markdown}}{R Markdown}}\label{r-markdown}}
+
+Title: ``Code Monster Markdown''\\
+Author: Annika Jorgensen\\
+Date: 02/02/2022\\
+Purpose: This document is for the author to demonstrate understanding of
+the ``DEG\_analysis\_changed\_comparison'' code and theory.
+
+\hypertarget{libraries}{%
+\subsubsection{\texorpdfstring{\textbf{Libraries}}{Libraries}}\label{libraries}}
+
+The first chunk of code is dedicated to installing the libraries. These
+libraries are to help execute the differential analysis and helps
+visualize the data.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#==================================}
+\CommentTok{\# Markdown Librariese }
+\CommentTok{\#==================================}
+
+\CommentTok{\#==================================}
+\CommentTok{\# DEG Analysis Librariese }
+\CommentTok{\#==================================}
+
+\FunctionTok{library}\NormalTok{(RColorBrewer)}
+\FunctionTok{library}\NormalTok{(matrixStats)}
+\FunctionTok{library}\NormalTok{(ggplot2)}
+\FunctionTok{library}\NormalTok{(edgeR)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: limma
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(DESeq2)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: S4Vectors
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: stats4
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: BiocGenerics
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'BiocGenerics'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:limma':
+## 
+##     plotMA
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:stats':
+## 
+##     IQR, mad, sd, var, xtabs
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:base':
+## 
+##     anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+##     dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+##     grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+##     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+##     rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+##     union, unique, unsplit, which.max, which.min
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'S4Vectors'
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:base':
+## 
+##     expand.grid, I, unname
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: IRanges
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'IRanges'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:grDevices':
+## 
+##     windows
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: GenomicRanges
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: GenomeInfoDb
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: SummarizedExperiment
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: MatrixGenerics
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'MatrixGenerics'
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:matrixStats':
+## 
+##     colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+##     colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+##     colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+##     colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+##     colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+##     colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+##     colWeightedMeans, colWeightedMedians, colWeightedSds,
+##     colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+##     rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+##     rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+##     rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+##     rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+##     rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+##     rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+##     rowWeightedSds, rowWeightedVars
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: Biobase
+\end{verbatim}
+
+\begin{verbatim}
+## Welcome to Bioconductor
+## 
+##     Vignettes contain introductory material; view with
+##     'browseVignettes()'. To cite Bioconductor, see
+##     'citation("Biobase")', and for packages 'citation("pkgname")'.
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'Biobase'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:MatrixGenerics':
+## 
+##     rowMedians
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:matrixStats':
+## 
+##     anyMissing, rowMedians
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(limma)}
+\FunctionTok{library}\NormalTok{(doParallel)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: foreach
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: iterators
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: parallel
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(variancePartition)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: BiocParallel
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'variancePartition'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:limma':
+## 
+##     classifyTestsF
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(org.Hs.eg.db)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: AnnotationDbi
+\end{verbatim}
+
+\begin{verbatim}
+## 
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(clusterProfiler)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+\end{verbatim}
+
+\begin{verbatim}
+## clusterProfiler v4.2.2  For help: https://yulab-smu.top/biomedical-knowledge-mining-book/
+## 
+## If you use clusterProfiler in published research, please cite:
+## T Wu, E Hu, S Xu, M Chen, P Guo, Z Dai, T Feng, L Zhou, W Tang, L Zhan, X Fu, S Liu, X Bo, and G Yu. clusterProfiler 4.0: A universal enrichment tool for interpreting omics data. The Innovation. 2021, 2(3):100141
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'clusterProfiler'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:AnnotationDbi':
+## 
+##     select
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:IRanges':
+## 
+##     slice
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:S4Vectors':
+## 
+##     rename
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:stats':
+## 
+##     filter
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(GOSemSim)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## GOSemSim v2.20.0  For help: https://yulab-smu.top/biomedical-knowledge-mining-book/
+## 
+## If you use GOSemSim in published research, please cite:
+## [36m-[39m Guangchuang Yu. Gene Ontology Semantic Similarity Analysis Using GOSemSim. In: Kidder B. (eds) Stem Cell Transcriptional Networks. Methods in Molecular Biology, 2020, 2117:207-215. Humana, New York, NY. doi:10.1007/978-1-0716-0301-7_11
+## [36m-[39m Guangchuang Yu, Fei Li, Yide Qin, Xiaochen Bo, Yibo Wu, Shengqi Wang. GOSemSim: an R package for measuring semantic similarity among GO terms and gene products Bioinformatics 2010, 26(7):976-978. doi:10.1093/bioinformatics/btq064
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(biomaRt)}
+\FunctionTok{library}\NormalTok{(UpSetR)}
+\FunctionTok{library}\NormalTok{(VennDiagram)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: grid
+\end{verbatim}
+
+\begin{verbatim}
+## Loading required package: futile.logger
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(ggrepel)}
+\FunctionTok{library}\NormalTok{(dplyr)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## Attaching package: 'dplyr'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:biomaRt':
+## 
+##     select
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:AnnotationDbi':
+## 
+##     select
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:Biobase':
+## 
+##     combine
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:GenomicRanges':
+## 
+##     intersect, setdiff, union
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:GenomeInfoDb':
+## 
+##     intersect
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:IRanges':
+## 
+##     collapse, desc, intersect, setdiff, slice, union
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:S4Vectors':
+## 
+##     first, intersect, rename, setdiff, setequal, union
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:BiocGenerics':
+## 
+##     combine, intersect, setdiff, union
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:matrixStats':
+## 
+##     count
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(stringr)}
+\FunctionTok{library}\NormalTok{(forcats)}
+
+\FunctionTok{setwd}\NormalTok{(}\StringTok{\textquotesingle{}\textasciitilde{}/R\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{environment-parameters}{%
+\subsection{\texorpdfstring{\textbf{Environment
+parameters}}{Environment parameters}}\label{environment-parameters}}
+
+This next section of code is dedicated to the environmental parameters.
+Environmental parameters are a series of variables and other code that
+will help make the rest of the script be easier to make and run later
+on.
+
+\hypertarget{working-directory}{%
+\subsubsection{\texorpdfstring{\textbf{Working
+Directory}}{Working Directory}}\label{working-directory}}
+
+A working directory is a code that iterates a file path on your computer
+th.t sets where the default location of any files that you read into R.
+Working directories work different in R files than R Markdowns. R
+Markdown files require directories to be defined at the end of each code
+chunk. Meaning from here on out you will see working directories being
+defined at the end of each code chunk.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{setwd}\NormalTok{(}\StringTok{\textquotesingle{}\textasciitilde{}/R\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{defining-colors}{%
+\subsubsection{\texorpdfstring{\textbf{Defining
+Colors}}{Defining Colors}}\label{defining-colors}}
+
+This chunk defines color palette variables that are going to be used in
+plots later on the script. These variables are defined by conversiting
+BrewerCode palettes into palettes that can be used in R.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{viralPalette }\OtherTok{\textless{}{-}} \FunctionTok{brewer.pal}\NormalTok{(}\DecValTok{8}\NormalTok{, }\StringTok{"Set1"}\NormalTok{)}
+\NormalTok{hbvColor }\OtherTok{\textless{}{-}}\NormalTok{ viralPalette[}\DecValTok{1}\NormalTok{]}
+\NormalTok{hcvColor }\OtherTok{\textless{}{-}}\NormalTok{ viralPalette[}\DecValTok{2}\NormalTok{]}
+\NormalTok{bothColor }\OtherTok{\textless{}{-}}\NormalTok{ viralPalette[}\DecValTok{3}\NormalTok{]}
+\NormalTok{neitherColor }\OtherTok{\textless{}{-}}\NormalTok{ viralPalette[}\DecValTok{4}\NormalTok{]}
+
+\NormalTok{sexTissuePalette }\OtherTok{\textless{}{-}} \FunctionTok{brewer.pal}\NormalTok{(}\DecValTok{12}\NormalTok{, }\StringTok{"Paired"}\NormalTok{)}
+\NormalTok{maleTumorColor }\OtherTok{\textless{}{-}}\NormalTok{ sexTissuePalette[}\DecValTok{4}\NormalTok{]}
+\NormalTok{maleAdjacentColor }\OtherTok{\textless{}{-}}\NormalTok{ sexTissuePalette[}\DecValTok{3}\NormalTok{]}
+\NormalTok{femaleTumorColor }\OtherTok{\textless{}{-}}\NormalTok{ sexTissuePalette[}\DecValTok{6}\NormalTok{]}
+\NormalTok{femaleAdjacentColor }\OtherTok{\textless{}{-}}\NormalTok{ sexTissuePalette[}\DecValTok{5}\NormalTok{]}
+\FunctionTok{setwd}\NormalTok{(}\StringTok{\textquotesingle{}\textasciitilde{}/R\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{read-in-data}{%
+\subsubsection{\texorpdfstring{\textbf{Read in
+data}}{Read in data}}\label{read-in-data}}
+
+This code is where you read in all the data files that are going to be
+used in the script. The data is also converted into a variety of
+variables that makes the data easier to handle. The data is also cleaned
+up to make sure the analysis done later is accurate and precise.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{metadata }\OtherTok{\textless{}{-}} \FunctionTok{read.table}\NormalTok{(}\StringTok{"metadata\_for\_de.csv"}\NormalTok{, }\AttributeTok{row.names=}\DecValTok{1}\NormalTok{,}\AttributeTok{header=}\ConstantTok{TRUE}\NormalTok{, }\AttributeTok{sep=}\StringTok{","}\NormalTok{) }\CommentTok{\#changing the name of the file}
+\NormalTok{tumorAdjacentExp }\OtherTok{\textless{}{-}} \FunctionTok{read.table}\NormalTok{(}\StringTok{"japan\_all\_samples\_salmon\_expression\_counts.txt"}\NormalTok{, }\AttributeTok{row.names =} \DecValTok{1}\NormalTok{, }\AttributeTok{header=}\ConstantTok{TRUE}\NormalTok{) }\CommentTok{\#changing the name of the file }
+\FunctionTok{colnames}\NormalTok{(tumorAdjacentExp) }\OtherTok{\textless{}{-}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{."}\NormalTok{, }\StringTok{"{-}"}\NormalTok{, }\FunctionTok{colnames}\NormalTok{(tumorAdjacentExp)) }\CommentTok{\#changing the column names }
+\end{Highlighting}
+\end{Shaded}
+
+This next code chunk is very similar However, it does calculate
+\textbf{gene length} which is the done by first defining a variable
+named ``gene'''' and then changing the data type to a data frame. You
+then redefine ``tumorAdjacentExp'' (defined above) to have the rows of
+the previous ``tumorAdjacentExp'' and then the columns of ``GENEID''''
+that lies within ``gene''.\\
+Gene length is then defined to have ``with'' of genes in the rows and
+`end-start' as a column
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{genes }\OtherTok{\textless{}{-}} \FunctionTok{read.table}\NormalTok{(}\StringTok{"gencodeTranscripts.txt"}\NormalTok{, }\AttributeTok{header=}\ConstantTok{TRUE}\NormalTok{, }\AttributeTok{sep=}\StringTok{"}\SpecialCharTok{\textbackslash{}t}\StringTok{"}\NormalTok{)}
+\NormalTok{genes }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(genes)}
+\NormalTok{tumorAdjacentExp }\OtherTok{\textless{}{-}}\NormalTok{ tumorAdjacentExp[}\FunctionTok{rownames}\NormalTok{(tumorAdjacentExp) }\SpecialCharTok{\%in\%}\NormalTok{ genes}\SpecialCharTok{$}\NormalTok{GENEID ,]}
+\NormalTok{genes }\OtherTok{\textless{}{-}}\NormalTok{ genes[}\FunctionTok{match}\NormalTok{(}\FunctionTok{rownames}\NormalTok{(tumorAdjacentExp), genes}\SpecialCharTok{$}\NormalTok{GENEID),]}
+\CommentTok{\# Calculating gene length, this is needed for calculating the FPKM values}
+\NormalTok{genes}\SpecialCharTok{$}\NormalTok{length }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(genes, end }\SpecialCharTok{{-}}\NormalTok{ start)}
+\end{Highlighting}
+\end{Shaded}
+
+The next line shows a sample being removed due to low quality.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{metadata}\OtherTok{\textless{}{-}}\NormalTok{metadata[}\SpecialCharTok{!}\NormalTok{(metadata}\SpecialCharTok{$}\NormalTok{ID }\SpecialCharTok{==} \StringTok{"RK023"}\NormalTok{), ]}
+\end{Highlighting}
+\end{Shaded}
+
+This next chunk of data is dedicated to sub-setting and organizing the
+data to make it easier to use going forward. Sub-setting means that the
+data is being organized to match a count matrix. In this specific case
+the count matrix is the sample ID attached to the tumors.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{tumorAdjacentExpSubset }\OtherTok{\textless{}{-}}\NormalTok{ tumorAdjacentExp[,}\FunctionTok{colnames}\NormalTok{(tumorAdjacentExp) }\SpecialCharTok{\%in\%}\NormalTok{ metadata}\SpecialCharTok{$}\NormalTok{sampleid]}
+\NormalTok{metadataSubset }\OtherTok{\textless{}{-}}\NormalTok{ metadata[metadata}\SpecialCharTok{$}\NormalTok{sampleid }\SpecialCharTok{\%in\%} \FunctionTok{colnames}\NormalTok{(tumorAdjacentExpSubset),]}
+\NormalTok{metadataSubset }\OtherTok{\textless{}{-}}\NormalTok{ metadataSubset[}\FunctionTok{match}\NormalTok{(}\FunctionTok{colnames}\NormalTok{(tumorAdjacentExpSubset), metadataSubset}\SpecialCharTok{$}\NormalTok{sampleid),]}
+\FunctionTok{rownames}\NormalTok{(metadataSubset) }\OtherTok{\textless{}{-}}\NormalTok{ metadataSubset}\SpecialCharTok{$}\NormalTok{sampleid}
+\end{Highlighting}
+\end{Shaded}
+
+This next chunk of data is taking the meta data and subsetting it in
+such a way that converts a series of categorical variables into factors.
+This data also adds a tissue type.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{tumor }\OtherTok{\textless{}{-}} \FunctionTok{as.numeric}\NormalTok{(}\FunctionTok{grepl}\NormalTok{(}\StringTok{\textquotesingle{}tumor\textquotesingle{}}\NormalTok{, metadataSubset}\SpecialCharTok{$}\NormalTok{sampleid, }\AttributeTok{ignore.case=}\NormalTok{T))}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{gender\_tissue }\OtherTok{\textless{}{-}} \FunctionTok{paste}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Gender, metadataSubset}\SpecialCharTok{$}\NormalTok{tumor, }\AttributeTok{sep=}\StringTok{"\_"}\NormalTok{)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{gender\_tissue\_viral }\OtherTok{\textless{}{-}} \FunctionTok{paste}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{gender\_tissue, metadataSubset}\SpecialCharTok{$}\NormalTok{Virus\_infection, }\AttributeTok{sep=}\StringTok{"\_"}\NormalTok{)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{library\_type }\OtherTok{\textless{}{-}}\NormalTok{ metadataSubset}\SpecialCharTok{$}\NormalTok{strandedness}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{library\_type }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{library\_type)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{tumor }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{tumor)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{Ta }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Ta)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{Portal\_vein\_invasion }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Portal\_vein\_invasion)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{Hepatic\_vein\_invasion }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Hepatic\_vein\_invasion)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{Bile\_duct\_invasion }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Bile\_duct\_invasion)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{Liver\_fibrosisc }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Liver\_fibrosisc)}
+\NormalTok{metadataSubset}\SpecialCharTok{$}\NormalTok{Prognosis }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(metadataSubset}\SpecialCharTok{$}\NormalTok{Prognosis)}
+\end{Highlighting}
+\end{Shaded}
+
+
+\end{document}

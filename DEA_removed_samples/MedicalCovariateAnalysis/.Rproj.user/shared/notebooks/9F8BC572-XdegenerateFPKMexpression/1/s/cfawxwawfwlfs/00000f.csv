@@ -1,0 +1,4 @@
+"0","geneXaxis<- 1:5"
+"0",""
+"0","pdf(""~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlot.pdf"", width=12, height=12)"
+"0","plot(geneXaxis,Tumor_expressionData$`RK002-tumor-XY`,main=""FPKM of all Tumor Samples for KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1"",type=""b"",ylab=""FPKM"",xlab=""KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1"")"

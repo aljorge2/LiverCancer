@@ -1,0 +1,100 @@
+---
+title: "Shared and Unique genes"
+author: "Annika Jorgensen"
+date: "2023-03-06"
+output: html_document
+---
+
+##*Shared and Unique Genes between HBV and HCV tumor tumor-adjacent**
+```{r shared and unique genes}
+library(arsenal)
+
+#reading in DEGs
+DEGs_HBV<- read.csv( "~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_HBV_covariate.csv")
+DEGs_HCV<-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_HCV_covariate.csv")
+
+#summary of list comparisions and differences
+
+#df<-comparedf(x=DEGs_HBV, y=DEGs_HCV, by="gene_name")
+#summary(comparedf(x=DEGs_HBV, y=DEGs_HCV))
+```
+
+```{r gene differences}
+DEGs_HBV_unique<-setdiff(DEGs_HBV$gene_name, DEGs_HCV$gene_name)
+DEGs_HBV_unique<-as.data.frame(DEGs_HBV_unique)
+nrow(DEGs_HBV_unique)
+
+DEGs_HCV_unique<-setdiff(DEGs_HCV$gene_name, DEGs_HBV$gene_name)
+DEGs_HCV_unique<-as.data.frame(DEGs_HCV_unique)
+nrow(DEGs_HCV_unique)
+
+#write.csv(diffs(df), "~/Desktop/Research Projects/Liver Cancer Project/Gene lists/etiology_gene_differences.csv")
+```
+
+```{r extracting gene similarities}
+DEGs_intersect<-intersect(DEGs_HBV$gene_name, DEGs_HCV$gene_name) 
+DEGs_intersect<-as.data.frame(DEGs_intersect)
+nrow(DEGs_intersect)
+```
+
+##**Sex and Etiology Genes**
+
+```{r sex and etiology read in}
+DEG_M_HBV<-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_M_HBV.csv")
+DEG_M_HCV<-read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_M_HCV.csv")
+
+DEG_F_HBV<- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HBV.csv")
+DEG_F_HCV<- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HCV.csv")
+
+DEG_F_HBV_relax<- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HBV_relax_p.csv")
+DEG_F_HCV_relax<- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Gene lists/DEG_F_HCV_relax_p.csv")
+
+```
+
+```{r male HBV unique}
+DEG_M_HBV_unique<-setdiff(DEG_M_HBV$gene_name, DEG_F_HBV$gene_name)
+DEG_M_HBV_unique<-as.data.frame(DEG_M_HBV_unique)
+nrow(DEG_M_HBV_unique)
+```
+
+```{r female HBV unique}
+DEG_F_HBV_unique<- setdiff(DEG_F_HBV$gene_name, DEG_M_HBV$gene_name)
+DEG_F_HBV_unique<-as.data.frame(DEG_F_HBV_unique)
+nrow(DEG_F_HBV_unique)
+
+DEG_F_HBV_relax_unique<-setdiff(DEG_F_HBV_relax$gene_name, DEG_M_HBV$gene_name)
+DEG_F_HBV_relax_unique<-as.data.frame(DEG_F_HBV_relax_unique)
+nrow(DEG_F_HBV_relax_unique)
+
+DEGs_intersect<-intersect(DEG_M_HBV$gene_name, DEG_F_HBV$gene_name) 
+DEGs_intersect<-as.data.frame(DEGs_intersect)
+nrow(DEGs_intersect)
+
+DEGs_intersect<-intersect(DEG_M_HBV$gene_name, DEG_F_HBV_relax$gene_name) 
+DEGs_intersect<-as.data.frame(DEGs_intersect)
+nrow(DEGs_intersect)
+```
+
+```{r male HCV}
+DEG_M_HCV_unique<-setdiff(DEG_M_HCV$gene_name, DEG_F_HCV$gene_name)
+DEG_M_HCV_unique<-as.data.frame(DEG_M_HCV_unique)
+nrow(DEG_M_HCV_unique)
+```
+
+```{r female HCV}
+DEG_F_HCV_unique<- setdiff(DEG_F_HCV$gene_name, DEG_M_HCV$gene_name)
+DEG_F_HCV_unique<-as.data.frame(DEG_F_HCV_unique)
+nrow(DEG_F_HCV_unique)
+
+DEG_F_HCV_relax_unique<-setdiff(DEG_F_HCV_relax$gene_name, DEG_M_HCV$gene_name)
+DEG_F_HCV_relax_unique<-as.data.frame(DEG_F_HCV_relax_unique)
+nrow(DEG_F_HCV_relax_unique)
+
+DEGs_intersect<-intersect(DEG_M_HCV$gene_name, DEG_F_HCV$gene_name) 
+DEGs_intersect<-as.data.frame(DEGs_intersect)
+nrow(DEGs_intersect)
+
+DEGs_intersect<-intersect(DEG_M_HCV$gene_name, DEG_F_HCV_relax$gene_name) 
+DEGs_intersect<-as.data.frame(DEGs_intersect)
+nrow(DEGs_intersect)
+```

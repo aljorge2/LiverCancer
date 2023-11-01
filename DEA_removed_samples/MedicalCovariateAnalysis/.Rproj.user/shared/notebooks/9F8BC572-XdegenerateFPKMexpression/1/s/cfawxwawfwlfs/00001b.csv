@@ -1,0 +1,1 @@
+"0","plot(geneXaxis,Adjacent_expressionData$`RK002-adjacent-XY`,main=""FPKM of all Tumor Samples for KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1"",type=""b"",ylab=""FPKM"",xlab=""KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1"", ylim=c(0,100))"

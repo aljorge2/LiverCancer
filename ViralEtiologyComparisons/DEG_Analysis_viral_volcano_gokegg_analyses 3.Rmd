@@ -1,0 +1,849 @@
+---
+title: "Viral Etiologies Plots and GO/KEGG"
+author: "Annika Jorgensen"
+date: '2022-07-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **R Markdown**
+
+Title: Viral Etiologies Plots and Go/KEGG  
+Author: Annika Jorgensen  
+Date: 07/07/2022  
+Purpose: This document is for the author generate all volcano plots and Go KEGG Analyeses for the Viral Etiology Sections of the DEG Changed Comparisions file. 
+
+### **Libraries**
+
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.   
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================                                                                                                                                                                                                            \
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+
+setwd('~/R')
+```
+
+## **Environment parameters**
+
+This next section of code is dedicated to the environmental parameters. Environmental parameters are a series of variables and other code that will help make the rest of the script be easier to make and run later on. 
+
+### **Working Directory** 
+
+A working directory is a code that iterates a file path on your computer th.t sets where the default location of any files that you read into R. Working directories work different in R files than R Markdowns. R Markdown files require directories to be defined at the end of each code chunk. Meaning from here on out you will see working directories being defined at the end of each code chunk. 
+```{r Working_Directory}
+setwd('~/R')
+```
+
+### **Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by conversiting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+setwd('~/R')
+```
+
+### **Read in Data**
+
+This chunk is reading is all of the viral etiology DEG gene lists in order to run GO/KEGG analyses and generate volcano Plots
+
+```{r csv read in}
+
+vTopTable_M_HBV <- topTable(veBayesFit, coef=1, n=Inf, p.value=1, lfc=0)
+write.csv(vTopTable_M_HBV,"~/R/M_HBV_unfiltered.csv")
+
+vTopTable_M_HCV <- topTable(veBayesFit, coef=2, n=Inf, p.value=1, lfc=0)
+write.csv(vTopTable_M_HCV,"~/R/M_HCV_unfiltered.csv")
+
+vTopTable_M_Neither <- topTable(veBayesFit, coef=3, n=Inf, p.value=1, lfc=0)
+write.csv(vTopTable_M_Neither,"~/R/M_Neither_unfiltered.csv")
+
+vTopTable_F_HBV <- topTable(veBayesFit, coef=4, n=Inf, p.value=1, lfc=0)
+write.csv(vTopTable_F_HBV,"~/R/F_HBV_unfiltered.csv")
+
+vTopTable_F_HCV <- topTable(veBayesFit, coef=5, n=Inf, p.value=1, lfc=0)
+write.csv(vTopTable_F_HCV,"~/R/F_HCV_unfiltered.csv")
+
+vTopTable_F_Neither <- topTable(veBayesFit, coef=6, n=Inf, p.value=1, lfc=0)
+write.csv(vTopTable_F_Neither,"~/R/F_Neither_unfiltered.csv")
+
+DEG_F_HBV <- read.csv("DEG_F_HBV.csv")
+DEG_F_HBV_relax_p <- read.csv("DEG_F_HBV_relax_p.csv")
+
+DEG_F_HCV<-read.csv("DEG_F_HCV.csv")
+DEG_F_HCV_relax_p<- read.csv("DEG_F_HCV_relax_p.csv")
+
+DEG_F_Neither<- read.csv("DEG_F_Neither.csv")
+DEG_F_Neither_relax_p<-read.csv("DEG_F_Neither_relaX_p.csv")
+
+DEG_M_HBV<- read.csv("DEG_M_HBV.csv")
+DEG_M_HCV<- read.csv("DEG_M_HCV.csv")
+DEG_M_Neither<- read.csv("DEG_M_Neither.csv")
+```
+
+### **Volcano Plots**
+
+This section is dedicated to generate volcano plots using the DEG gene lists
+
+**Male HBV Volcano Plot**
+This volcano plot showes the DEGs from the Male HBV etiology tumor vs tumor adjacent samples 
+```{r plot objecent HBV male}
+df <- data.frame(vTopTable_M_HBV$adj.P.Val,vTopTable_M_HBV$logFC, vTopTable_M_HBV$chr, vTopTable_M_HBV$GENEID, vTopTable_M_HBV$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+```
+
+This chunk generates the plot without the significance thresholds 
+```{r Volcano Object HBV}
+# Constructing the plot object. The colors will not work the way they should if
+# one of the groups doesn't have any genes
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 50)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10))
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.05 & abs(logFC)>=2)
+```
+
+This section applies significance thresholds to the volcano plot created above. The thresholds can be seen via dotted lines on the graph.
+```{r Significance Thresholds male HBV}
+
+# Adding lines for significance thresholds
+pdf("~/R/Volcano_plot_male_HBV_DEGs.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+dev.off()
+```
+
+
+```{r Print HBV volcano plot}
+
+p
+
+```
+
+***Male HCV Volcano Plot***
+
+This section generates a volcano plot with significance levels for the Male HCV samples 
+```{r HCV male Volcano Plot}
+# ===============================================
+#Volcano plot of male HCV tumor vs tumor-adjacent
+# ===============================================
+
+df <- data.frame(DEG_M_HCV$adj.P.Val, DEG_M_HCV$logFC, DEG_M_HCV$chr, DEG_M_HCV$GENEID, DEG_M_HCV$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.01),]$id
+
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+
+# Constructing the plot object. The colors will not work the way they should if
+# one of the groups doesn't have any genes
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 70)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10))
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.01 & abs(logFC)>=2)
+```
+
+This section creates the significance levels for the plot created above. The ouput can be seen in the dotted lines on the graph. 
+```{r male HCV significance levels}
+# Adding lines for significance thresholds
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Volcano_plot_male_HCV_DEGs.pdf", width=12, height=12)
+pdf("~/R/Volcano_plot_male_HCV_DEGs.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+
+dev.off()
+```
+
+```{r Print HCV volcano plot}
+
+p
+
+```
+
+***Male Nonviral Volcano Plot***
+
+This section generates a volcano plot for the male nonviral samples with significance levels 
+```{r male nonviral tumor vs. tumor adjacent}
+
+# ===============================================
+#Volcano plot of male non-viral tumor vs tumor-adjacent
+# ===============================================
+
+df <- data.frame(DEG_M_Neither$adj.P.Val, DEG_M_Neither$logFC, DEG_M_Neither$chr, DEG_M_Neither$GENEID, DEG_M_Neither$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.01),]$id
+
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+
+# Constructing the plot object. The colors will not work the way they should if
+# one of the groups doesn't have any genes
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 40)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10))
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.01 & abs(logFC)>=2)
+
+# Adding lines for significance thresholds
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Volcano_plot_male_Neither_DEGs.pdf", width=12, height=12)
+pdf("~/R/Volcano_plot_male_Neither_DEGs.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+dev.off()
+```
+
+```{r Print Neither volcano plot}
+
+p
+
+```
+***Female HBV Volcano Plot***
+
+```{r Volcano Plot female HBV}
+# ===========================================
+#Volcano plot of female HBV tumor vs tumor-adjacent
+# ===========================================
+
+df <- data.frame(DEG_F_HBV$adj.P.Val, DEG_F_HBV$logFC, DEG_F_HBV$chr, DEG_F_HBV$GENEID, DEG_F_HBV$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.01),]$id
+
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+
+# Constructing the plot object. The colors will not work the way they should if
+# one of the groups doesn't have any genes
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 30)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10))
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.01 & abs(logFC)>=2)
+```
+
+```{r Female significance thresholds}
+# Adding lines for significance thresholds
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Volcano_plot_female_HBV_DEGs.pdf", width=12, height=12)
+pdf("~/R/Volcano_plot_female_HBV_DEGs.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+dev.off()
+
+library(VennDiagram)
+library(grDevices)
+venn3<-venn.diagram(List("Female"=DEG_F_HBV$gene_name, "Male"=DEG_M_HBV$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn3)
+pdf("venn3.pdf")
+
+venn4<-venn.diagram(List("Female"=DEG_F_HBV_relax_p$gene_name, "Male"=DEG_M_HBV$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn4)
+pdf(file="venn4.pdf")
+dev.off()
+
+```
+
+```{r Print Female HBV Volcano Plot}
+p
+```
+
+**Volcano Plot Female HCV**
+
+This section creates and ouputs a volcano plot of female HCV tumor tumor adjacent samples. 
+```{r Female HCV Volcano Plot}
+# ===========================================
+#Volcano plot of female HCV tumor vs tumor-adjacent
+# ===========================================
+
+df <- data.frame(DEG_F_HCV$adj.P.Val, DEG_F_HCV$logFC, DEG_F_HCV$chr, DEG_F_HCV$GENEID, DEG_F_HCV$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+
+# Constructing the plot object. The colors will not work the way they should if
+# one of the groups doesn't have any genes
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 40)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10))
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.05 & abs(logFC)>=2)
+```
+
+This section creates significance levels and venn diagrams. The significance levels are for the volcano plot created above and can be seen as the dotted lines on the plot below. 
+
+The Venn Diagrams are to show the overlap in male and female HCV samples. 
+```{r female HCV and Venn Diagram}
+# Adding lines for significance thresholds
+pdf("~/R/Volcano_plot_female_HCV_DEGs.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+dev.off()
+
+library(VennDiagram)
+library(grDevices)
+#venn.diagram(List("Female"=DEGs_F_HCV$gene_name, "Male"=DEGs_M_HCV$gene_name),  filename = "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Overlap_DEGs_HCV.png")
+#venn.diagram(List("Female"=DEGs_F_HCV_relax_p$gene_name, "Male"=DEGs_M_HCV$gene_name),  filename = "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Overlap_DEGs_HCV_Frelaxp.png")
+
+venn5<-venn.diagram(List("Female"=DEG_F_HCV$gene_name, "Male"=DEG_M_HCV$gene_name), filename=NULL)
+grid.newpage()
+grid.draw(venn5)
+pdf(file="venn5.pdf")
+
+venn6<-venn.diagram(List("Female"=DEG_F_HCV_relax_p$gene_name, "Male"=DEG_M_HCV$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn6)
+pdf(file="venn6.pdf")
+dev.off()
+```
+
+**Volcano Plot Female non-viral**
+
+```{r female non-viral to tumor adjacent volcano plot venn diagram}
+# ===========================================
+#Volcano plot of female non-viral tumor vs tumor-adjacent
+# ===========================================
+
+df <- data.frame(DEG_F_Neither$adj.P.Val, DEG_F_Neither$logFC, DEG_F_Neither$chr, DEG_F_Neither$GENEID, DEG_F_Neither$gene_name)
+colnames(df) <- c("adj.P.Val", "logFC", "chr", "id", "name")
+dfSig <- df[(abs(df$logFC) >= 2 & df$adj.P.Val <= 0.05),]$id
+
+
+dfAnons <- subset(df, chr != "chrX" & chr != "chrY" & !(id %in% dfSig))
+dfAnons <- cbind(dfAnons , rep(1, nrow(dfAnons)))
+colnames(dfAnons)[6] <- "Color"
+
+dfXnons <- subset(df, chr == "chrX" & !(id %in% dfSig))
+dfXnons <- cbind(dfXnons, rep(2, nrow(dfXnons)))
+colnames(dfXnons)[6] <- "Color"
+
+dfYnons <- subset(df, chr == "chrY" & !(id %in% dfSig))
+dfYnons <- cbind(dfYnons, rep(3, nrow(dfYnons)))
+colnames(dfYnons)[6] <- "Color"
+
+dfA <- subset(df, chr != "chrX" & chr != "chrY" & id %in% dfSig)
+dfA <- cbind(dfA, rep(4, nrow(dfA)))
+colnames(dfA)[6] <- "Color"
+
+dfX <- subset(df, chr == "chrX" & id %in% dfSig)
+dfX <- cbind(dfX, rep(5, nrow(dfX)))
+colnames(dfX)[6] <- "Color"
+
+dfY <- subset(df, chr == "chrY" & id %in% dfSig)
+dfY <- cbind(dfY, rep(6, nrow(dfY)))
+colnames(dfY)[6] <- "Color"
+
+dfPlot <- rbind(dfAnons, dfXnons, dfYnons, dfA, dfX, dfY)
+dfPlot$Color <- as.factor(dfPlot$Color)
+
+# Constructing the plot object. The colors will not work the way they should if
+# one of the groups doesn't have any genes
+p <- ggplot(data = dfPlot, aes(x = logFC, y = -log10(adj.P.Val), color=Color )) +
+  geom_point(alpha = 0.5, size = 8) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  xlim(c(-15, 15)) + ylim(c(0, 7.5)) +
+  scale_color_manual(values = c("azure3", "pink", "seagreen2", "black", "mediumvioletred", "springgreen")) +
+  labs(x=expression(log[2](FC)),
+       y=expression(-log[10] ~ "(FDR-adjusted " ~ italic("p") ~ "-value)")) +
+  theme(axis.title.x=element_text(size=12), 
+        axis.text.x=element_text(size=10)) +
+  theme(axis.title.y=element_text(size=12),
+        axis.text.y=element_text(size=10))
+p
+
+forLabel <- subset(dfPlot, adj.P.Val<=0.05 & abs(logFC)>=2)
+
+# Adding lines for significance thresholds
+pdf("~/R/Volcano_plot_female_Neither_DEGs.pdf", width=12, height=12)
+p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
+) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
+) + geom_text_repel(data=forLabel, max.iter=1000, box.padding = 0.25, force=1, aes(x = logFC, y = -log10(adj.P.Val), label=name, color=Color), size=8)
+dev.off()
+
+library(VennDiagram)
+library(grDevices)
+venn7<- venn.diagram(List("Female"=DEG_F_Neither$gene_name, "Male"=DEG_M_Neither$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn7)
+pdf(file="venn7.pdf")
+
+
+venn8<- venn.diagram(List("Female"=DEG_F_Neither_relax_p$gene_name, "Male"=DEG_M_Neither$gene_name),  filename = NULL)
+grid.newpage()
+grid.draw(venn8)
+pdf(file="venn8.pdf")
+dev.off()
+```
+
+### **Results**
+
+This section creates the gene list results and the Go/KEGG Analysis for all Viral Etiolgoies 
+
+**DEG results Male HBV **
+
+This code chunk shows the results of our DEG analysis for by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
+
+The label "kegg-enzyme' was not valid so it has been deleted.
+
+```{r GO KEGG HBV Male}
+degResult_genes <- DEG_M_HBV
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label beccause it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+This section does the GO/KEGG analysis and generates the plots and exports them into PDFs
+```{r DEG results HBV Male}
+degResult_genes_biomart <- merge(degResult_genes, biomart, by="hgnc_symbol")
+head(degResult_genes_biomart)
+degResult <- DEG_M_HBV
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+pdf("~/R/Goplot_HBV_male.pdf", width=12, height=12)
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/Goplot_all_female.pdf", width=12, height=12)
+goplot(ego)
+dev.off()
+
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/dotplot_all_female.pdf", width=12, height=12)
+pdf("~/R/dotplot_HBV_male.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+dev.off()
+```
+
+**DEG results HCV Male**
+
+This code chunk shows the results of our DEG analysis by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
+
+The label "kegg-enzyme' was not valid so it has been deleted.
+```{r GO KEGG HCV Male}
+degResult_genes <- DEG_M_HCV
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label beccause it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+This section does the GO/KEGG analysis and generates the plots and exports them into PDFs
+```{r DEG results HCV Male}
+degResult_genes_biomart <- merge(degResult_genes, biomart, by="hgnc_symbol")
+head(degResult_genes_biomart)
+degResult <- DEG_M_HCV
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/Goplot_all_female.pdf", width=12, height=12)
+pdf("~/R/Goplot_HCV_male.pdf", width=12, height=12)
+goplot(ego)
+dev.off()
+
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/dotplot_all_female.pdf", width=12, height=12)
+pdf("~/R/dotplot_HCV_male.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+dev.off()
+```
+
+**DEG results Male Nonviral**
+
+This code chunk shows the results of our DEG analysis for male nonviral by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
+
+The label "kegg-enzyme' was not valid so it has been deleted.
+```{r GO KEGG Neither}
+degResult_genes <- DEG_M_Neither
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label beccause it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+This section generates a dot plot and a go plot showing the results of the GO Kegg Analysis from male nonviral samples 
+```{r DEG results Neither}
+degResult_genes_biomart <- merge(degResult_genes, biomart, by="hgnc_symbol")
+head(degResult_genes_biomart)
+degResult <- DEG_M_Neither
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/Goplot_all_female.pdf", width=12, height=12)
+pdf("~/R/Goplot_neither_male.pdf", width=12, height=12)
+goplot(ego)
+dev.off()
+
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/dotplot_all_female.pdf", width=12, height=12)
+pdf("~/R/dotplot_neither_male.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+dev.off()
+```
+
+**DEG results Female HBV**
+
+This code chunk shows the results of our DEG analysis for male nonviral by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
+
+The label "kegg-enzyme' was not valid so it has been deleted.
+```{r GO KEGG Female HBV}
+degResult_genes <- DEG_F_HBV
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label beccause it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+This section generates a dot plot and a go plot showing the results of the GO Kegg Analysis from female HBV samples 
+```{r DEG results Female HBV}
+degResult_genes_biomart <- merge(degResult_genes, biomart, by="hgnc_symbol")
+head(degResult_genes_biomart)
+degResult <-DEG_F_HBV
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/Goplot_all_female.pdf", width=12, height=12)
+pdf("~/R/Goplot_HBV_female.pdf", width=12, height=12)
+goplot(ego)
+dev.off()
+
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/dotplot_all_female.pdf", width=12, height=12)
+pdf("~/R/dotoplot_HBV_female.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+dev.off()
+```
+
+**DEG results Female HCV**
+
+This code chunk shows the results of our DEG analysis for male nonviral by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
+
+The label "kegg-enzyme' was not valid so it has been deleted.
+```{r GO KEGG Female HCV}
+degResult_genes <- DEG_F_HCV
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label beccause it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+This section generates a dot plot and a go plot showing the results of the GO Kegg Analysis from female HCV samples 
+```{r DEG results Female HCV}
+degResult_genes_biomart <- merge(degResult_genes, biomart, by="hgnc_symbol")
+head(degResult_genes_biomart)
+degResult <-DEG_F_HCV
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/Goplot_all_female.pdf", width=12, height=12)
+pdf("~/R/Goplot_HCV_female.pdf", width=12, height=12)
+goplot(ego)
+dev.off()
+
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/dotplot_all_female.pdf", width=12, height=12)
+pdf("~/R/dotoplot_HCV_female.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+dev.off()
+```
+
+**DEG results Female Nonviral**
+
+This code chunk shows the results of our DEG analysis for male nonviral by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
+
+The label "kegg-enzyme' was not valid so it has been deleted.
+```{r GO KEGG Female Nonviral}
+degResult_genes <- DEG_F_Neither
+
+degResult_genes$hgnc_symbol <- degResult_genes$name
+ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+
+#Deleted "kegg_enzyme" label beccause it does not work. 
+biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+```
+
+This section generates a dot plot and a go plot showing the results of the GO Kegg Analysis from female nonviral samples 
+```{r DEG results Female Nonviral}
+degResult_genes_biomart <- merge(degResult_genes, biomart, by="hgnc_symbol")
+head(degResult_genes_biomart)
+degResult <-DEG_F_Neither
+degResult$hgnc_symbol <- degResult$gene_name
+degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+geneList <- degResult_biomart$entrezgene_id
+geneList_quant <- degResult_biomart$logFC
+ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/Goplot_all_female.pdf", width=12, height=12)
+pdf("~/R/Goplot_neither_female.pdf", width=12, height=12)
+goplot(ego)
+dev.off()
+
+#pdf("~/3.0 Hasting Research/Liver Cancer Analysis/GO_KEGG Figures/dotplot_all_female.pdf", width=12, height=12)
+pdf("~/R/dotplot_neither_female.pdf", width=12, height=12)
+dotplot(ego, showCategory=30)
+dev.off()
+```
