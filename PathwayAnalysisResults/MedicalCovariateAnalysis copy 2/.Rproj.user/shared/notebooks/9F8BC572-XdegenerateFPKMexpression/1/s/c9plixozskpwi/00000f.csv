@@ -1,7 +1,0 @@
-"0","#test <- Tumor_expressionData[1,]"
-"0","#test <- t(test)"
-"0","#test <- as.data.frame(test)"
-"0","#test$gene <- rownames(test)"
-"0","#colnames(test) <- c(""RK002"",""gene"")"
-"0","#ggplot(test, aes(x=gene, y=RK002)) + geom_line() + geom_point()"
-"0","#ggplot(data=Tumor_expressionData,aes(x=gene, y=Names, group=group)) +geom_line() + geom_point()"

@@ -439,6 +439,8 @@ gene4 <- dge[which(dge$gene_name=="TSPY1"),]
 gene5 <- dge[which(dge$gene_name=="AR"),]
 gene6 <- dge[which(dge$gene_name=="XIST"),]
 
+#outputting XIST expression for later use
+write.csv(gene6, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots/data/XISTexpressionData.csv")
 #creating data frame of all genes we will be working with
 xDegenerateExpression<- rbind(gene0,gene1,gene2,gene3,gene4,gene5,gene6)
 #xDegenerateExpression<- t(xDegenerateExpression)

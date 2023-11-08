@@ -1,0 +1,201 @@
+---
+title: "TumorSamplesGraphNoTSPY1Gene"
+author: "Annika Jorgensen"
+date: "2023-11-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## **Purpose**
+This Rmarkdown will plot FPKM expression of DDX3Y, EIF1AY, TXLNGY, KDM5D separated by male tumor samples. This is a second iteration of XdegeneratFPKMespression.Rmd where tumor samples FPKM expression were plotted but not separated by sex and the gene TSPY1 was added. Sex is separated out because these genes are y-linked. TSPY1 is not included because there is no expression in most samples 
+
+## **Results**
+Two graphs were created. The first showed the gene expression of all samples with expression under **100 FPKM**. The second showed the gene expression of all samples with expression under **500 FPKM**.
+
+```{r Libraries, include=FALSE}
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(gridExtra)
+library(tidyverse)
+
+setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots')
+```
+
+**Read in data**
+Reading in a .csv file created in the XdegenerateFPKMexpression.Rmd file which contains the tumor expression data of the four genes
+```{r reading in data}
+#reading in tumor expression data for DDX3Y, EIF1AY, TXLNGY, KDM5D, TSPY1
+Tumor_expressionData <- read.csv("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots/data/TumorExpressionData5genes.csv",row.names=1,header=TRUE, sep=",")
+
+#removing expression data for TSPY1
+Tumor_expressionData<- Tumor_expressionData[-5,]
+
+#creating a vector for the x axis of our plot
+geneXaxis<- 1:4
+```
+
+**Tumor male samples data frame**
+This code chunk will iteratively create a data frame with all male samples that have FPKM under 100 FPKM in all genes
+```{r male data frame 100 FPKM}
+#creating data frame with sample 3 expression data
+dataFiltered<-  as.data.frame(cbind(genes=rownames(Tumor_expressionData),Expression=Tumor_expressionData[,2],Names=c("003","003","003","003")))
+rownames(dataFiltered)<-1:4
+
+#creating data frame with sample 202 expression
+newRow<- as.data.frame(cbind(genes=rownames(Tumor_expressionData),Expression=Tumor_expressionData[,115],Names=c("207","207","207","207")))
+rownames(newRow)<-1:4
+
+#combining sample 202 and sample 3
+dataFiltered<- rbind(dataFiltered,newRow)
+```
+
+Plotting all samples with FPKM under 100 FPKM in all genes
+```{r male plot 100FPKM}
+#changing Expression values to be numeric 
+dataFiltered$Expression<- as.numeric(dataFiltered$Expression)
+
+#plotting all samples with FPKM under 100
+expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
+  geom_point(aes(color=Names))+ ggtitle("Male Tumor Samples w/ FPKM Expression under 100") + ylab("FPKM") +xlab("")+ labs(color = "Samples")
+expressionPlot
+
+#outputting plot to PDF
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/FPKM_sampleNamesPlots/MalesSamples_100FPKM_GeneExpressionPlot.pdf", width=12, height=12)
+expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
+  geom_point(aes(color=Names))+ ggtitle("Male Tumor Samples w/ FPKM Expression under 100 FPKM") + ylab("FPKM") +xlab("")+ labs(color = "Samples")
+expressionPlot
+dev.off()
+```
+Making a data frame with all male tumor samples
+```{r MaleTumorExpress}
+Tumor_expressionData<- t(Tumor_expressionData)
+Tumor_expressionData<- as.data.frame(Tumor_expressionData)
+
+MaleTumor_expressionData<- Tumor_expressionData[grepl("XY",rownames(Tumor_expressionData),fixed=TRUE),]
+MaleTumor_expressionData<- t(MaleTumor_expressionData)
+MaleTumor_expressionData<-as.data.frame(MaleTumor_expressionData)
+
+Tumor_expressionData<- t(Tumor_expressionData)
+Tumor_expressionData<- as.data.frame(Tumor_expressionData)
+```
+
+This code chunk will iteratively create a data frame with all male samples that have FPKM under 500FPKM in all genes
+```{r male data frame 500FPKM}
+#creating data frame with sample 3 expression data
+dataFiltered<-  as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,2],Names=c("003","003","003","003")))
+rownames(dataFiltered)<-1:4
+
+#creating data frame with sample 034 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,17],Names=c("034","034","034","034")))
+rownames(newRow)<-1:4
+
+#combining sample 034 and sample 3
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 060 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,34],Names=c("060","060","060","060")))
+rownames(newRow)<-1:4
+
+#combining sample 060 and sample 3,034
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 088 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,42],Names=c("088","088","088","088")))
+rownames(newRow)<-1:4
+
+#combining sample 088 and sample 3,034,060
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 120 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,52],Names=c("120","120","120","120")))
+rownames(newRow)<-1:4
+
+#combining sample 120 and sample 3,034,060,088
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 162 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,71],Names=c("162","162","162","162")))
+rownames(newRow)<-1:4
+
+#combining sample 162 and sample 3,034,060,088,120
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 175 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,75],Names=c("175","175","175","175")))
+rownames(newRow)<-1:4
+
+#combining sample 175 and sample 3,034,060,088,120,162
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 181 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,77],Names=c("181","181","181","181")))
+rownames(newRow)<-1:4
+
+#combining sample 181 and sample 3,034,060,088,120,162,175
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 207 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,84],Names=c("207","207","207","207")))
+rownames(newRow)<-1:4
+
+#combining sample 207 and sample 3,034,060,088,120,162,175,181
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 262 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,100],Names=c("262","262","262","262")))
+rownames(newRow)<-1:4
+
+#combining sample 262 and sample 3,034,060,088,120,162,175,181,207
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#creating data frame with sample 263 expression
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,101],Names=c("263","263","263","263")))
+rownames(newRow)<-1:4
+
+#combining sample 263 and sample 3,034,060,088,120,162,175,181,207,262
+dataFiltered<- rbind(dataFiltered,newRow)
+```
+
+Plotting all samples with expression under 500 FPKM in all genes
+```{r male plot 500FPKM}
+#changing Expression values to be numeric 
+dataFiltered$Expression<- as.numeric(dataFiltered$Expression)
+
+#plotting all samples with FPKM under 500
+expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
+  geom_point(aes(color=Names)) + ggtitle("Male Tumor Samples w/ FPKM Expression under 500 FPKM") + ylab("FPKM") +xlab("")+ labs(color = "Samples")
+expressionPlot
+
+#outputting plot to PDF
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/FPKM_sampleNamesPlots/MalesSamples_500FPKM_GeneExpressionPlot.pdf", width=12, height=12)
+
+#plotting all samples with FPKM under 500
+expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
+  geom_point(aes(color=Names)) + ggtitle("Male Tumor Samples w/ FPKM Expression under 500 FPKM") + ylab("FPKM") +xlab("")+ labs(color = "Samples")
+expressionPlot
+dev.off()
+```
+
+## **Conclusion**
+
+Two male samples had all genes under 100FPKM expression. Eleven samples had all genes under 500FPKM expression. It is possible that the two samples 003 and 207 have a degenerated Y chromosome.

@@ -1,6 +1,0 @@
-"0","# Removing batch effects"
-"0","vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)"
-"0",""
-"0","# Exponentiating Expression data"
-"0","vCorrectLibtype <- 2 ^ vCorrectLibtype"
-"0","vCorrectLibtype <- as.data.frame(vCorrectLibtype)"

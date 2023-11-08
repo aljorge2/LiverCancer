@@ -34,7 +34,7 @@ library(stats)
 library(gridExtra)
 library(tidyverse)
 
-setwd('~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples')
+setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples')
 ```
 
 **Read in data**
@@ -195,12 +195,13 @@ Tumor_expressionData <- xDegenerateExpression[grepl("tumor",rownames(xDegenerate
 Tumor_expressionData <- as.data.frame(Tumor_expressionData)
 Tumor_expressionData<- t(Tumor_expressionData)
 Tumor_expressionData <- as.data.frame(Tumor_expressionData)
+write.csv(Tumor_expressionData,file = "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots/data/TumorExpressionData5genes.csv")
 
 Adjacent_expressionData <- xDegenerateExpression[grepl("adjacent",rownames(xDegenerateExpression),fixed=TRUE),]
 Adjacent_expressionData <- as.data.frame(Adjacent_expressionData)
 Adjacent_expressionData<- t(Adjacent_expressionData)
 Adjacent_expressionData <- as.data.frame(Adjacent_expressionData)
-
+write.csv(Adjacent_expressionData,file = "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots/data/TumorAdjExpressionData5genes.csv")
 #Creating Names column
 #for (i in 1:dim(Tumor_expressionData)[1]) {
 #    Tumor_expressionData$Names[i] = substr(row.names(Tumor_expressionData)[i],3,5)
@@ -221,7 +222,7 @@ Adjacent_expressionData <- as.data.frame(Adjacent_expressionData)
 ```{r scatterplot} 
 geneXaxis<- 1:5
 
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlot.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlot.pdf", width=12, height=12)
 plot(geneXaxis,Tumor_expressionData$`RK002-tumor-XY`,main="FPKM of all Tumor Samples for KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1",type="b",ylab="FPKM",xlab="KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1")
 
 for (i in colnames(Tumor_expressionData)) {
@@ -232,7 +233,7 @@ for (i in colnames(Tumor_expressionData)) {
 }
 dev.off()
 
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlot_adjacent.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlot_adjacent.pdf", width=12, height=12)
 plot(geneXaxis,Adjacent_expressionData$`RK002-adjacent-XY`,main="FPKM of all Tumor Samples for KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1",type="b",ylab="FPKM",xlab="KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1")
 
 for (i in colnames(Adjacent_expressionData)) {
@@ -251,7 +252,7 @@ dev.off()
 #}
 
 
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlotAxisLim.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlotAxisLim.pdf", width=12, height=12)
 plot(geneXaxis,Tumor_expressionData$`RK002-tumor-XY`,main="FPKM of all Tumor Samples for KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1",type="b",ylab="FPKM",xlab="KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1", ylim=c(0,100))
 for (i in colnames(Tumor_expressionData)) {
   lines(geneXaxis,Tumor_expressionData[,i],type="b")
@@ -261,7 +262,7 @@ for (i in colnames(Tumor_expressionData)) {
 }
 dev.off()
 
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlotAxisLim_adjacent.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SamplesXdegenerateGenesPlotAxisLim_adjacent.pdf", width=12, height=12)
 plot(geneXaxis,Adjacent_expressionData$`RK002-adjacent-XY`,main="FPKM of all Tumor Samples for KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1",type="b",ylab="FPKM",xlab="KDM5D, DDX3Y, EIF1AY, TXLNGY, TSPY1", ylim=c(0,100))
 
 for (i in colnames(Adjacent_expressionData)) {
@@ -587,7 +588,7 @@ expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)
 expressionPlot
 
 #outputting plot to PDF
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/FPKM_sampleNamesPlots/100FPKM_XdegenerateGeneExpressionPlot.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/FPKM_sampleNamesPlots/100FPKM_XdegenerateGeneExpressionPlot.pdf", width=12, height=12)
 expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
   geom_point(aes(color=Names))
 expressionPlot
@@ -893,7 +894,7 @@ expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)
 expressionPlot
 
 #outputting plot to PDF
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/FPKM_sampleNamesPlots/20FPKM_XdegenerateGeneExpressionPlot.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/FPKM_sampleNamesPlots/20FPKM_XdegenerateGeneExpressionPlot.pdf", width=12, height=12)
 expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
   geom_point(aes(color=Names))
 expressionPlot
@@ -1352,7 +1353,7 @@ expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)
 expressionPlot
 
 #outputting PDF of plot
-pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/TSPY1_expression_plot.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/TSPY1_expression_plot.pdf", width=12, height=12)
 expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
   geom_point(aes(color=Names))
 expressionPlot
