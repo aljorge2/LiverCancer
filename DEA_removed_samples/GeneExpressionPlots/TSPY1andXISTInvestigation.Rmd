@@ -8,23 +8,186 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+## **Purpose**
+The purpose of this file is twofold. One purpose for this file see if the male tumor samples that show XIST expression graph (created in Sex_check_automation_removed_samples.Rmd) are the same samples that show TSPY1 expression. Another purpose is to see if the male tumor samples with XIST expression are also associated with low Y chromosome expression. 
 
-## R Markdown
+***
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## **Results**
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+### **Pseudo code **
 
-```{r cars}
-summary(cars)
+* Read in expression data for the five y chromosome genes and XIST
+
+* Subset data for all Male tumor samples.
+
+* Find samples with TSPY1 expression
+* Find samples with XIST expression. If any samples overlap with TSPY1 and XIST
+  +  plot tumor expression of all y chromosome genes and XIST
+  +  plot tumor adj expression as well 
+* For all samples with XIST expression. See if samples have low y chromsome expression
+  + See if they show up on any previous graphs made in past files 
+  + If low expression make a note
+
+```{r Libraries, include=FALSE}
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(gridExtra)
+library(tidyverse)
+
+setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots')
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r read in data}
+#reading in tumor expression data for DDX3Y, EIF1AY, TXLNGY, KDM5D, TSPY1
+Tumor_expressionData <- read.csv("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/GeneExpressionPlots/data/TumorExpressionData6genes.csv",row.names=1,header=TRUE, sep=",")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r subsetting by males and genes}
+Tumor_expressionData<- t(Tumor_expressionData)
+Tumor_expressionData<- as.data.frame(Tumor_expressionData)
+
+#subsetting by male tumor samples
+MaleTumor_expressionData<- Tumor_expressionData[grepl("XY",rownames(Tumor_expressionData),fixed=TRUE),]
+MaleTumor_expressionData<- t(MaleTumor_expressionData)
+MaleTumor_expressionData<- as.data.frame(MaleTumor_expressionData)
+```
+
+**Samples with XIST Expression**
+* Sample 079
+  + Contains TSPY1 expression (low amounts)
+  
+* Sample 027
+  + No TSPY1 expression
+```{r plot XIST expression males}
+#sample 027 expression 
+dataFiltered<-  as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,13],Names=c("027","027","027","027","027","027")))
+rownames(dataFiltered)<-1:6
+
+#samples 079 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,38],Names=c("079","079","079","079","079","079")))
+rownames(newRow)<-1:6
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 151 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,66],Names=c("151","151","151","151","151","151")))
+rownames(newRow)<-1:6
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 175 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,75],Names=c("175","175","175","175","175","175")))
+rownames(newRow)<-1:6
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 209 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,85],Names=c("209","209","209","209","209","209")))
+rownames(newRow)<-1:6
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 289 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,108],Names=c("289","289","289","289","289","289")))
+rownames(newRow)<-1:6
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+```
+
+```{r plotting expression}
+#changing Expression values to be numeric 
+dataFiltered$Expression<- as.numeric(dataFiltered$Expression)
+
+#plotting all samples with FPKM under 500
+expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
+  geom_point(aes(color=Names)) + ggtitle("Male Tumor Samples w/ High XIST expression") + ylab("FPKM") +xlab("")+ labs(color = "Samples") #+ ylim(0,50)
+expressionPlot
+```
+Plotted six samples with High XIST expression. Out of the six samples, *three samples had zero or low TSPY1 expression (sample 175, and 027 had zero and sample 079 had low (under 100 FPKM)).* 
+
+```{r plot without XIST and TSPY1}
+
+Tumor_expressionData<- subset(Tumor_expressionData, select = -c(XIST,TSPY1))
+
+#subsetting by male tumor samples
+MaleTumor_expressionData<- Tumor_expressionData[grepl("XY",rownames(Tumor_expressionData),fixed=TRUE),]
+MaleTumor_expressionData<- t(MaleTumor_expressionData)
+MaleTumor_expressionData<- as.data.frame(MaleTumor_expressionData)
+```
+
+```{r dataframe without TSPY1 and XIST}
+#sample 027 expression 
+dataFiltered<-  as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,13],Names=c("027","027","027","027")))
+rownames(dataFiltered)<-1:4
+
+#samples 079 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,38],Names=c("079","079","079","079")))
+rownames(newRow)<-1:4
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 151 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,66],Names=c("151","151","151","151")))
+rownames(newRow)<-1:4
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 175 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,75],Names=c("175","175","175","175")))
+rownames(newRow)<-1:4
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 209 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,85],Names=c("209","209","209","209")))
+rownames(newRow)<-1:4
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+
+#samples 289 expression 
+newRow<- as.data.frame(cbind(genes=rownames(MaleTumor_expressionData),Expression=MaleTumor_expressionData[,108],Names=c("289","289","289","289")))
+rownames(newRow)<-1:4
+
+#combing expression into data frame
+dataFiltered<- rbind(dataFiltered,newRow)
+```
+
+```{r plotting expression without TSPY1 and XIST}
+#changing Expression values to be numeric 
+dataFiltered$Expression<- as.numeric(dataFiltered$Expression)
+
+#plotting all samples with FPKM under 500
+expressionPlot<- ggplot(data=dataFiltered, aes(x=genes,y=Expression,group=Names)) +  geom_line(aes(color=Names))+
+  geom_point(aes(color=Names)) + ggtitle("Male Tumor Samples w/ High XIST expression") + ylab("FPKM") +xlab("")+ labs(color = "Samples") #+ ylim(0,50)
+expressionPlot
+```
+
+It does not appear that male tumor samples with high XIST expression have low Y chromosome expression.

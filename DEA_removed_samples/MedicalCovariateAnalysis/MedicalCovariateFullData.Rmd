@@ -1,0 +1,62 @@
+---
+title: "MedicalCovariateFullData"
+author: "Annika Jorgensen"
+date: "2023-11-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### **Libraries**
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.  
+```{r Libraries, include=FALSE}
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(gridExtra)
+```
+
+```{r  Reading in data}
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/Full_RIKEN_clinical_data.csv", row.names=1,header=TRUE, sep=",")
+
+metadataSmall <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",")
+```
+
+```{r subsetting data}
+#subset metadataSubset data frame by male samples
+Male <- metadata[grepl("XY",rownames(metadataSubset)),]
+
+#subset metadataSubset data frame by male tumor samples
+MaleTumor<-  Male[grepl("tumor",rownames(Male)),]
+
+#subset metadataSubset by male adjacent samples
+MaleAdjacent <- Male[grepl("adjacent", rownames(Male)),]
+
+#subset metadataSubset data frame by female samples
+Female <- metadataSubset[grepl("XX",rownames(metadataSubset)),]
+
+#subset metadataSubset data frame female tumor samples
+FemaleTumor <- Female[grepl("tumor",rownames(Female)),]
+
+#subset metadataSubset data frame female tumor adjacent samples
+FemaleAdjacent <- Female[grepl("adjacent", rownames(Female)),]
+```
