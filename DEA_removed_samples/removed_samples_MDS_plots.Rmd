@@ -46,7 +46,7 @@ library(forcats)
 library(stats)
 library(gridExtra)
 
-setwd('~/Desktop/Research Projects/Liver Cancer Project/DEA_removed_samples')
+setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples')
 ```
 
 **Defining Colors** 
@@ -70,13 +70,13 @@ femaleAdjacentColor <- sexTissuePalette[5]
 
 This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
 ```{r Reading_in_data}
-metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
-tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
 colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
 
 # Importing gene annotations
 #genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
-genes <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
 genes <- data.frame(genes)
 tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
 genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
@@ -226,7 +226,7 @@ This creates outputs an MDS Plot that we've previously see showing the dissimila
 # Removing batch effects
 vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/DEA_removed_samples/new_figures/removed_samples_MDS_plots_top_25_genes.pdf")
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/removed_samples_MDS_plots_top_25_genes.pdf")
 mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -263,5 +263,43 @@ legend("center", pch=c(15),
 legend("topright", pch=c(17, 15, 16, 3),
  #     col=c("black"),
        legend=c("HBV", "HCV"))
+```
+
+```{r Tumor Samples}
+#creating column with stage and sex information 
+identifiers<- cbind(stage=v[["targets"]][["Ta"]],sex=v[["targets"]][["sex"]])
+
+#getting expression data from voom output
+samples<- as.data.frame(v)
+
+#removing columns that do not contain expression data
+samples<- subset(samples, select = -c(chr, start, end, TXNAME, GENEID, length,gene_name))
+
+#rownames of stage column contain samples names
+rownames(identifiers)<- colnames(samples)
+
+#subsetting by tumor samples
+identifiers<-identifiers[grepl("tumor",rownames(identifiers),fixed=TRUE),]
+identifiers<- as.data.frame(identifiers)
+
+Tumor<- t(samples)
+Tumor<- as.data.frame(Tumor)
+Tumor<- Tumor[grepl("tumor",rownames(Tumor),fixed=TRUE),]
+```
+
+```{r tumor sample variation}
+
+mds <- plotMDS(Tumor, top = 5, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$stage=="1","#FFC20A",
+                           ifelse(identifiers$stage=="2", "#E66100",
+                                  ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("center", pch=c(15), 
+      col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4"))
+legend("topright", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))             
 ```
 
