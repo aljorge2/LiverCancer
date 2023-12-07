@@ -544,19 +544,29 @@ Male0&lt;- nrow(Male[Male$Alcohol.intakee== &quot;0&quot;, ])
 Male1&lt;- nrow(Male[Male$Alcohol.intakee== &quot;1&quot;, ])
 Male2&lt;- nrow(Male[Male$Alcohol.intakee== &quot;2&quot;, ])
 Male3&lt;- nrow(Male[Male$Alcohol.intakee== &quot;3&quot;, ])
+MaleAlcohol&lt;- as.data.frame(cbind(Male0,Male1,Male2,Male3))
 
 #female alcohol
 Female0&lt;- nrow(Female[Female$Alcohol.intakee== &quot;0&quot;, ])
 Female1&lt;- nrow(Female[Female$Alcohol.intakee== &quot;1&quot;, ])
 Female2&lt;- nrow(Female[Female$Alcohol.intakee== &quot;2&quot;, ])
 Female3&lt;- nrow(Female[Female$Alcohol.intakee== &quot;3&quot;, ])
+FemaleAlcohol&lt;- as.data.frame(cbind(Female0,Female1,Female2,Female3))
 
 #counts of alcohol intake
 
 AlcoholIntake&lt;- as.data.frame(cbind(Males= c(Male0,Male1,Male2,Male3), Females= c(Female0, Female1, Female2,Female3)))
 rownames(AlcoholIntake)&lt;- c(0,1,2,3)
 
-#sums of rows in Alcoholintake
+# alpha 0.05 
+chisq.test(AlcoholIntake)</code></pre>
+<pre><code>## 
+##  Pearson&#39;s Chi-squared test
+## 
+## data:  AlcoholIntake
+## X-squared = 30.204, df = 3, p-value = 1.25e-06</code></pre>
+<pre class="r"><code># reject null hypothesis</code></pre>
+<pre class="r"><code>#sums of rows in Alcoholintake
 AlcoholTotalCounts&lt;-c(63,25,42,20)
 
 #add sums of rows to AlcoholIntake
@@ -615,7 +625,17 @@ Female4F&lt;- nrow(Female[Female$Liver.fibrosisc== &quot;4&quot;, ])
 LiverFibrosis&lt;- as.data.frame(cbind(Males= c(Male0F,Male1F,Male2F,Male3F,Male4F), Females= c(Female0F, Female1F, Female2F,Female3F,Female4F)))
 rownames(LiverFibrosis)&lt;- c(0,1,2,3,4)
 
-#sums of rows in LiverFibrosis
+# alpha 0.05 
+chisq.test(LiverFibrosis)</code></pre>
+<pre><code>## Warning in chisq.test(LiverFibrosis): Chi-squared approximation may be
+## incorrect</code></pre>
+<pre><code>## 
+##  Pearson&#39;s Chi-squared test
+## 
+## data:  LiverFibrosis
+## X-squared = 6.5253, df = 4, p-value = 0.1632</code></pre>
+<pre class="r"><code># do not reject null hypothesis</code></pre>
+<pre class="r"><code>#sums of rows in LiverFibrosis
 LiverFibrosisCounts&lt;-c(5,16,30,40,59)
 
 #add sums of rows to LiverFibrosis
@@ -672,7 +692,15 @@ Female4st&lt;- nrow(Female[Female$Liver.fibrosisc== &quot;4&quot;, ])
 TumorStage&lt;- as.data.frame(cbind(Males= c(Male1st,Male2st,Male3st,Male4st), Females= c(Female1st, Female2st, Female3st,Female4st)))
 rownames(TumorStage)&lt;- c(1,2,3,4)
 
-#sums of rows in TumorStage
+# alpha 0.05 
+chisq.test(TumorStage)</code></pre>
+<pre><code>## 
+##  Pearson&#39;s Chi-squared test
+## 
+## data:  TumorStage
+## X-squared = 39.169, df = 3, p-value = 1.598e-08</code></pre>
+<pre class="r"><code># reject null hypothesis</code></pre>
+<pre class="r"><code>#sums of rows in TumorStage
 TumorStageCounts&lt;-c(20,53,50,27)
 
 #add sums of rows to TumorSTage
@@ -751,7 +779,15 @@ FemaleEg4&lt;- nrow(Female[Female$Edmondson.grade==&quot;4&quot;, ])
 EdmonsonGrade&lt;- as.data.frame(cbind(Males= c(MaleEg0,MaleEg1,MaleEg1.5,MaleEg2,MaleEg2.5,MaleEg3,MaleEg4), Females= c(FemaleEg0,FemaleEg1, FemaleEg1.5, FemaleEg2,FemaleEg2.5,FemaleEg3,FemaleEg4)))
 rownames(EdmonsonGrade)&lt;- c(0,1,1.5,2,2.5,3,4)
 
-#sums of rows in EdmonsonGrade
+chisq.test(EdmonsonGrade)</code></pre>
+<pre><code>## Warning in chisq.test(EdmonsonGrade): Chi-squared approximation may be
+## incorrect</code></pre>
+<pre><code>## 
+##  Pearson&#39;s Chi-squared test
+## 
+## data:  EdmonsonGrade
+## X-squared = 3.0261, df = 6, p-value = 0.8056</code></pre>
+<pre class="r"><code>#sums of rows in EdmonsonGrade
 EdmonsonGradeCounts&lt;-c(1,14,8,88,23,16,1)
 
 #add sums of rows to EdmonsonGrade
@@ -818,7 +854,15 @@ FemaleProg3&lt;- nrow(Female[Female$Prognosisf==&quot;3&quot;,])
 Prognosis&lt;- as.data.frame(cbind(Males= c(MaleProg0,MaleProg1,MaleProg2,MaleProg3), Females= c(FemaleProg0, FemaleProg1,FemaleProg2,FemaleProg3)))
 rownames(Prognosis)&lt;- c(0,1,2,3)
 
-#sums of rows in Prognosis
+chisq.test(EdmonsonGrade)</code></pre>
+<pre><code>## Warning in chisq.test(EdmonsonGrade): Chi-squared approximation may be
+## incorrect</code></pre>
+<pre><code>## 
+##  Pearson&#39;s Chi-squared test
+## 
+## data:  EdmonsonGrade
+## X-squared = 3.0346, df = 14, p-value = 0.999</code></pre>
+<pre class="r"><code>#sums of rows in Prognosis
 PrognosisCounts&lt;-c(124,21,3,2)
 
 #add sums of rows to Prognosis
@@ -885,8 +929,9 @@ prop.test(x=c(MaleStranded,FemaleStranded), n= c(198,80), p = NULL, alternative 
 ## sample estimates:
 ##    prop 1    prop 2 
 ## 0.5252525 0.5500000</code></pre>
-<pre class="r"><code>##NEED TO WRITE CONCLUSION</code></pre>
-<p>WRITE CONCLUSION HERE</p>
+<pre class="r"><code>#not significantly different</code></pre>
+<p>CONCLUSION: We are 95% confident that the proportion of males and
+females with stranded DNA is not significantly different</p>
 <pre class="r"><code>#proportion of stranded male samples
 MaleUnstranded&lt;- nrow(MaleSm[MaleSm$strandedness==&quot;unstranded&quot;,])
 MaleUnstranded</code></pre>
@@ -908,9 +953,17 @@ prop.test(x=c(MaleUnstranded,FemaleUnstranded), n= c(198,80), p = NULL, alternat
 ## sample estimates:
 ##    prop 1    prop 2 
 ## 0.4747475 0.4500000</code></pre>
-<pre class="r"><code>##NEED TO WRITE CONCLUSION</code></pre>
-<p>WRITE CONCLUSION HERE</p>
+<pre class="r"><code>#Not significantly different</code></pre>
+<p>CONCLUSION: We are 95% confident that the proportion of males and
+females with unstranded DNA is not significantly different</p>
 <hr />
+<pre class="r"><code>#counting number of samples without cancer in nodes
+MaleNodes&lt;- nrow(Male[Male$N==&quot;0&quot;,])
+FemaleNodes&lt;- nrow(Female[Female$N==&quot;0&quot;,])
+
+#counting number of samples without metastasis
+MaleMetastasis&lt;- nrow(Male[Male$M==&quot;0&quot;,])
+FemaleMetastasis&lt;- nrow(Female[Female$M==&quot;0&quot;,])</code></pre>
 </div>
 <div id="t-tests-various-cell-types" class="section level2">
 <h2><strong>T tests various cell types</strong></h2>

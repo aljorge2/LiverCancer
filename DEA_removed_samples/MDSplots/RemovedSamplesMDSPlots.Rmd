@@ -1,0 +1,524 @@
+---
+title: "2023_06_07_v2_MDS_plots"
+author: "Annika Jorgensen"
+date: "2023-06-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# **R Markdown**
+
+Title: "2023 06/07 Version 2 New MDS Plots"  
+Author: Annika Jorgensen  
+Date: 06/07/2023 
+
+**Purpose**
+This script is meant to remove the samples that were found to be outliers and then remake the MDS plot 
+
+**Methods**
+
+
+**Results**
+### **Libraries**
+The first chunk of code is dedicated to installing the libraries. These libraries are to help execute the differential analysis and helps visualize the data. The code was not included for concision.  
+```{r Libraries, include=FALSE}
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(gridExtra)
+
+setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples')
+```
+
+**Defining Colors** 
+
+This chunk defines color palette variables that are going to be used in plots later on the script. These variables are defined by converting BrewerCode palettes into palettes that can be used in R. 
+```{r Color_Palettes}
+viralPalette <- brewer.pal(8, "Set1")
+hbvColor <- viralPalette[1]
+hcvColor <- viralPalette[2]
+bothColor <- viralPalette[3]
+neitherColor <- viralPalette[4]
+
+sexTissuePalette <- brewer.pal(12, "Paired")
+maleTumorColor <- sexTissuePalette[4]
+maleAdjacentColor <- sexTissuePalette[3]
+femaleTumorColor <- sexTissuePalette[6]
+femaleAdjacentColor <- sexTissuePalette[5]
+```
+
+**Read in data**
+
+This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
+```{r Reading_in_data}
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
+
+# Importing gene annotations
+#genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- data.frame(genes)
+tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
+genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
+# Calculating gene length, this is needed for calculating the FPKM values
+genes$length <- with(genes, end - start)
+
+# Removing Samples due to low quality
+metadata <- metadata[!(metadata$ID == "RK023") , ]
+metadata <- metadata[!(metadata$ID == "RK106") , ]
+metadata <- metadata[!(metadata$ID == "RK113") , ]
+metadata <- metadata[!(metadata$ID == "RK135") , ]
+metadata <- metadata[!(metadata$ID == "RK105") , ]
+metadata <- metadata[!(metadata$ID == "RK116") , ]
+metadata <- metadata[!(metadata$ID == "RK066") , ]
+metadata <- metadata[!(metadata$ID == "RK096") , ]
+
+#Removing both and NBNC samples
+metadata <- metadata[!(metadata$Virus_infection == "NBNC"), ]
+metadata <- metadata[!(metadata$Virus_infection == "both"), ]
+
+# Subsetting and ordering metadata to match the count matrix
+tumorAdjacentExpSubset <- tumorAdjacentExp[,colnames(tumorAdjacentExp) %in% metadata$sampleid]
+metadataSubset <- metadata[metadata$sampleid %in% colnames(tumorAdjacentExpSubset),]
+metadataSubset <- metadataSubset[match(colnames(tumorAdjacentExpSubset), metadataSubset$sampleid),]
+rownames(metadataSubset) <- metadataSubset$sampleid
+
+# Adding tissue type, converting categorical variables to factors
+metadataSubset$tumor <- as.numeric(grepl('tumor', metadataSubset$sampleid, ignore.case=T))
+
+#Swapping lesion type for sample RK169
+metadataSubset["RK169-tumor-XY","tumor"] <- 0
+metadataSubset["RK169-adjacent-XY","tumor"] <- 1
+
+#Changing rownames to match swapped lesion type
+rownames(metadataSubset)[rownames(metadataSubset)=="RK169-tumor-XY"] <- "RK169_adjacent-XY"
+rownames(metadataSubset)[rownames(metadataSubset)=="RK169-adjacent-XY"] <- "RK169_tumor-XY"
+rownames(metadataSubset)[rownames(metadataSubset)=="RK169_adjacent-XY"] <- "RK169-adjacent-XY"
+
+rownames(tumorAdjacentExpSubset)[rownames(tumorAdjacentExpSubset)=="RK169-tumor-XY"] <- "RK169_adjacent-XY"
+rownames(tumorAdjacentExpSubset)[rownames(tumorAdjacentExpSubset)=="RK169-adjacent-XY"] <- "RK169_tumor-XY"
+rownames(tumorAdjacentExpSubset)[rownames(tumorAdjacentExpSubset)=="RK169_adjacent-XY"] <- "RK169-adjacent-XY"
+
+#Swapping lesion type for sample RK065
+metadataSubset["RK065-tumor-XX","tumor"] <- 0
+metadataSubset["RK065-adjacent-XX","tumor"] <- 1
+
+#Changing rownames in metadata to match swapped lesion type
+rownames(metadataSubset)[rownames(metadataSubset)=="RK065-tumor-XY"] <- "RK065_adjacent-XY"
+rownames(metadataSubset)[rownames(metadataSubset)=="RK065-adjacent-XY"] <- "RK065_tumor-XY"
+rownames(metadataSubset)[rownames(metadataSubset)=="RK065_adjacent-XY"] <- "RK065-adjacent-XY"
+
+rownames(tumorAdjacentExpSubset)[rownames(tumorAdjacentExpSubset)=="RK065-tumor-XY"] <- "RK065_adjacent-XY"
+rownames(tumorAdjacentExpSubset)[rownames(tumorAdjacentExpSubset)=="RK065-adjacent-XY"] <- "RK065_tumor-XY"
+rownames(tumorAdjacentExpSubset)[rownames(tumorAdjacentExpSubset)=="RK065_adjacent-XY"] <- "RK065-adjacent-XY"
+
+metadataSubset$gender_tissue <- paste(metadataSubset$Gender, metadataSubset$tumor, sep="_")
+metadataSubset$gender_tissue_viral <- paste(metadataSubset$gender_tissue, metadataSubset$Virus_infection, sep="_")
+metadataSubset$library_type <- metadataSubset$strandedness
+metadataSubset$library_type <- factor(metadataSubset$library_type)
+metadataSubset$tumor <- factor(metadataSubset$tumor)
+metadataSubset$Ta <- factor(metadataSubset$Ta)
+metadataSubset$Portal_vein_invasion <- factor(metadataSubset$Portal_vein_invasion)
+metadataSubset$Hepatic_vein_invasion <- factor(metadataSubset$Hepatic_vein_invasion)
+metadataSubset$Bile_duct_invasion <- factor(metadataSubset$Bile_duct_invasion)
+metadataSubset$Liver_fibrosisc <- factor(metadataSubset$Liver_fibrosisc)
+metadataSubset$Prognosis <- factor(metadataSubset$Prognosis)
+```
+
+```{r DGE Object}
+# Creating the DGEList object
+dge <- DGEList(counts=tumorAdjacentExpSubset, genes=genes)
+colnames(dge) <- colnames(tumorAdjacentExpSubset)
+dge$samples$sex <- metadataSubset$Gender
+dge$samples$viral <- factor(metadataSubset$Virus_infection)
+dge$samples$ID <- metadataSubset$ID
+dge$samples$tumor <- metadataSubset$tumor
+dge$samples$gender_tissue <- metadataSubset$gender_tissue
+dge$samples$gender_tissue_viral <- metadataSubset$gender_tissue_viral
+dge$samples$library_type <- metadataSubset$library_type
+dge$samples$edmonson_grade <- metadataSubset$Edmondson_grade
+dge$samples$Ta <- metadataSubset$Ta
+dge$samples$survival <- metadataSubset$Overall_survival_month
+dge$samples$smoking <- factor(metadataSubset$Smoking)
+dge$samples$alcohol <- factor(metadataSubset$Alcohol_intake)
+dge$samples$fibrosis <- factor(metadataSubset$Liver_fibrosisc)
+
+# Inspecting the N of samples in each group
+table(dge$samples$gender_tissue_viral)
+```
+
+```{r fpkm}
+# ======================================
+# Filtering expression data
+# ======================================
+
+# Keeping genes that have a mean FPKM of at least 0.5 in at least one of the
+# groups under investigation and at least 6 reads in at least 10 samples
+fpkm <- rpkm(dge, gene.length=dge$genes$length)
+
+M_1_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_1_HBV")],1,mean,na.rm=TRUE)
+M_0_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_0_HBV")],1,mean,na.rm=TRUE)
+M_1_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_1_HCV")],1,mean,na.rm=TRUE)
+M_0_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="M_0_HCV")],1,mean,na.rm=TRUE)
+
+F_1_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_1_HBV")],1,mean,na.rm=TRUE)
+F_0_HBV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_0_HBV")],1,mean,na.rm=TRUE)
+F_1_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_1_HCV")],1,mean,na.rm=TRUE)
+F_0_HCV_mean_fpkm <- apply(as.data.frame(fpkm)[(dge$samples$gender_tissue_viral=="F_0_HCV")],1,mean,na.rm=TRUE)
+
+keep <- (M_1_HBV_mean_fpkm > 0.5 | M_0_HBV_mean_fpkm > 0.5 | 
+           M_1_HCV_mean_fpkm > 0.5 | M_0_HCV_mean_fpkm > 0.5 |
+           F_1_HBV_mean_fpkm > 0.5 | F_0_HBV_mean_fpkm > 0.5 |
+           F_1_HCV_mean_fpkm > 0.5 | F_0_HCV_mean_fpkm > 0.5 )
+
+dge <- dge[keep,,keep.lib.sizes=FALSE]
+dge <- calcNormFactors(dge, method="TMM")
+keep <- rowSums(dge$counts > 6) >= 10
+dge <- dge[keep,,keep.lib.size=FALSE]
+dge <- calcNormFactors(dge, method="TMM")
+
+# N of genes retained after filtering
+dim(dge$genes)
+```
+
+```{r Voom}
+# ===================================== ======================
+# ===========================================================
+# Analysis of all tumor vs. tumor-adjacent regardless of sex
+# ===========================================================
+# ===========================================================
+
+# Creating a new design model matrix with the variable of interest and the
+# library type
+design <- model.matrix(~0+dge$samples$tumor+dge$samples$library_type+dge$samples$Ta+dge$samples$smoking+dge$samples$alcohol+dge$samples$fibrosis)
+colnames(design) <- gsub("dge\\$samples\\$tumor", "tumor", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$library_typeunstranded", "library_type", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta2", "Ta2", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta3", "Ta3", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$Ta4", "Ta4", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$smoking", "smoking", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$alcohol", "alcohol", colnames(design))
+colnames(design) <- gsub("dge\\$samples\\$fibrosis", "fibrosis", colnames(design))
+#colnames(design) <- gsub("dge\\$samples\\$Ta4", "Ta4", colnames(design))
+
+head(design)
+
+# Running voom again with the new design matrix.
+v <- voomWithQualityWeights(dge, design, plot=TRUE)
+
+```
+
+**Top 25 gene MDS Plot**
+This creates outputs an MDS Plot that we've previously see showing the dissimilarity between Male and Female Tumor-Tumor adjacent 
+
+```{r Library Type Correction}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
+write.csv(vCorrectLibtype,"~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/data/MDSplotData.csv")
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_top_25_genes.pdf")
+mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$gender_tissue=="M_1",
+                          "#FFC20A",
+                          ifelse(v$targets$gender_tissue=="M_0",
+                                 "#E66100",
+                                 ifelse(v$targets$gender_tissue=="F_1",
+                                        "#40B0A6", "#006CD1"))),
+               gene.selection = "common")
+legend("center", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+      legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+
+mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$gender_tissue=="M_1",
+                          "#FFC20A",
+                         ifelse(v$targets$gender_tissue=="M_0",
+                                "#E66100",
+                                 ifelse(v$targets$gender_tissue=="F_1",
+                                        "#40B0A6", "#006CD1"))),
+               gene.selection = "common")
+legend("center", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+      legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+ #     col=c("black"),
+       legend=c("HBV", "HCV"))
+```
+
+```{r Tumor Samples}
+#creating column with stage and sex information 
+viral<- as.data.frame(v[["targets"]][["viral"]])
+identifiers<- cbind(stage=v[["targets"]][["Ta"]],sex=v[["targets"]][["sex"]], viral)
+
+#getting expression data from voom output
+samples<- as.data.frame(v)
+
+#removing columns that do not contain expression data
+samples<- subset(samples, select = -c(chr, start, end, TXNAME, GENEID, length,gene_name))
+
+#rownames of stage column contain samples names
+rownames(identifiers)<- colnames(samples)
+
+
+#subsetting by tumor samples
+identifiers<-identifiers[grepl("tumor",rownames(identifiers),fixed=TRUE),]
+identifiers<- as.data.frame(identifiers)
+
+# checking number of female and male tumor samples match 
+Tumor<- vCorrectLibtype[, grepl("tumor",colnames(vCorrectLibtype),fixed=TRUE)]
+Tumor<- as.data.frame(Tumor)
+
+are_rownames_matching <- identical(rownames(identifiers), colnames(Tumor))
+print(are_rownames_matching)
+
+```
+
+```{r tumor sample variation}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_25_genes.pdf")
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$stage=="1","#FFC20A",
+                           ifelse(identifiers$stage=="2", "#E66100",
+                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
+      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4"))
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))  
+
+```
+
+```{r tumor sample variation}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_50_genes.pdf")
+mds <- plotMDS(Tumor, top = 50, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$stage=="1","#FFC20A",
+                           ifelse(identifiers$stage=="2", "#E66100",
+                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
+      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4")) 
+
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))  
+```
+
+```{r tumor sample variation}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_100_genes.pdf")
+mds <- plotMDS(Tumor, top = 100, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$stage=="1","#FFC20A",
+                           ifelse(identifiers$stage=="2", "#E66100",
+                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
+      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4")) 
+
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))           
+```
+
+```{r tumor sample variation}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_1000_genes.pdf")
+mds <- plotMDS(Tumor, top = 1000, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$stage=="1","#FFC20A",
+                           ifelse(identifiers$stage=="2", "#E66100",
+                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
+      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4")) 
+
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))         
+```
+
+```{r adding smoking}
+tumorMetadataSubset <- metadataSubset[grepl("tumor",rownames(metadataSubset),fixed=TRUE),]
+are_rownames_matching <- identical(rownames(identifiers), rownames(tumorMetadataSubset))
+print(are_rownames_matching)
+
+tumorMetadataSubset <- tumorMetadataSubset[match(rownames(tumorMetadataSubset), rownames(identifiers)),]
+are_rownames_matching <- identical(rownames(tumorMetadataSubset), rownames(identifiers))
+print(are_rownames_matching)
+
+
+identifiers<- cbind(identifiers,tumorMetadataSubset$Edmondson_grade)
+colnames(identifiers)<- c("stage","sex","viral","grade")
+```
+
+```{r virus}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/virus.pdf")
+plotMDS(Tumor, top = 1000, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col=ifelse(identifiers$viral %in% c("HBV"), "#1A85FF", 
+                          ifelse(identifiers$viral %in% c("HCV"), "#D41159", "black")),
+               gene.selection = "common")
+legend("top", pch=c(15), 
+       col=c("#D41159", "#1A85FF") ,
+       legend=c("HCV", "HBV"))
+legend("center", pch=c(17, 15),
+       col=c("black"),
+       legend=c("Female", "Male"))
+```
+
+```{r edmondson grade}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/testing.pdf")
+plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+              col= ifelse(identifiers$grade=="0","red",
+                           ifelse(identifiers$grade=="1", "orange",
+                                 ifelse(identifiers$grade=="1~2", "yellow",
+                                      ifelse(identifiers$grade=="2",  "green",
+                                             ifelse(identifiers$grade=="2~3", "darkgreen",
+                                                    ifelse(identifiers$grade=="3", "blue", "violet")))))),
+               gene.selection = "common")
+legend("top", pch=c(15), 
+       col=c( "red", "orange","yellow", "green", "darkgreen", "blue", "violet"),
+      legend=c("Grade 0","Grade 1", "Grade 1.5","Grade 2", "Grade 2.5", "Grade 3", "Grade 4")) 
+legend("center", pch=c(17, 15),
+       col=c("black"),
+       legend=c("Female", "Male"))
+```
+
+```{r smoking}
+identifiers<- cbind(identifiers,tumorMetadataSubset$Smoking)
+colnames(identifiers)<- c("stage","sex","viral","grade","Smoking")
+```
+```{r plot smoking}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/smoking.pdf")
+plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
+               gene.selection = "common")
+legend("bottomright", pch=c(15), 
+       col=c("#D41159", "#1A85FF") ,
+       legend=c("Not smoking", "Smoking"))
+legend("center", pch=c(17, 15),
+       col=c("black"),
+       legend=c("Female", "Male"))
+dev.off()
+
+plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
+               gene.selection = "common")
+legend("topleft", pch=c(15), 
+       col=c("#D41159", "#1A85FF") ,
+       legend=c("Not smoking", "Smoking"))
+legend("center", pch=c(17, 15),
+       col=c("black"),
+       legend=c("Female", "Male"))
+```
+
+```{r alcohol}
+identifiers<- cbind(identifiers,tumorMetadataSubset$Alcohol_intake)
+colnames(identifiers)<- c("stage","sex","viral","grade","Smoking", "Alcohol")
+```
+
+```{r alcohol mds plot}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/alcohol.pdf")
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$Alcohol=="0","#FFC20A",
+                           ifelse(identifiers$Alcohol=="1", "#E66100",
+                                 ifelse(identifiers$Alcohol=="2", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("bottomright", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
+      legend=c("No alcohol","Severity 1", "Severity 2","Severity 3")) 
+
+legend("topleft", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male")) 
+dev.off()
+
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$Alcohol=="0","#FFC20A",
+                           ifelse(identifiers$Alcohol=="1", "#E66100",
+                                 ifelse(identifiers$Alcohol=="2", "#40B0A6","#006CD1"))), gene.selection = "common")
+
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
+      legend=c("No alcohol","Severity 1", "Severity 2","Severity 3")) 
+
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))  
+```
+
+```{r fibrosis}
+identifiers<- cbind(identifiers,tumorMetadataSubset$Liver_fibrosisc)
+colnames(identifiers)<- c("stage","sex","viral","grade","Smoking", "Alcohol", "Fibrosis")
+```
+
+```{r plot fibrosis}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/fibrosis.pdf")
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$Fibrosis=="0","#FFC20A",
+                           ifelse(identifiers$Fibrosis=="1", "#E66100",
+                                 ifelse(identifiers$Fibrosis=="2", "#40B0A6",
+                                        ifelse(identifiers$Fibrosis== "3", "#006CD1", "darkblue")))), gene.selection = "common")
+
+legend("center", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1", "darkblue"),
+      legend=c("No Fibrosis","Severity 1", "Severity 2","Severity 3", "Severity 4")) 
+
+legend("topleft", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))  
+dev.off()
+
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$Fibrosis=="0","#FFC20A",
+                           ifelse(identifiers$Fibrosis=="1", "#E66100",
+                                 ifelse(identifiers$Fibrosis=="2", "#40B0A6",
+                                        ifelse(identifiers$Fibrosis== "3", "#006CD1", "darkblue")))), gene.selection = "common")
+
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1", "darkblue"),
+      legend=c("No Fibrosis","Severity 1", "Severity 2","Severity 3", "Severity 4")) 
+
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))  
+```

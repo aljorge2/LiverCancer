@@ -53,7 +53,7 @@ library(tinytex)
 
 
 ```{r Working_Directory}
-setwd('~/Desktop/Research Projects/Liver Cancer Project')
+setwd('~/Desktop/ResearchProjects/LiverCancer')
 ```
 
 ## **Tumor vs. Tumor-adjacent and sex stratified comparisons**
@@ -68,11 +68,11 @@ A gene list was generated from a differential expression analysis (DEA) and inpu
 
 ```{r data }
 
-tumor_tumor_adjacent <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Tumor Tumor-adjacent results.csv")
+tumor_tumor_adjacent <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/Tumor Tumor-adjacent results.csv")
 
-male_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Male_results.csv")
+male_all <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/Male_results.csv")
 
-female_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Female_results.csv")
+female_all <- read.csv("~/Desktop/ResearchProjects/LiverCancerProject/PathwayAnalysisResults/Female_results.csv")
 
 ```
 
@@ -109,7 +109,7 @@ names(input) <- c("all", "male", "female")
 
 upset(fromList(input), order.by= "freq", nsets=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/upsetplot_sex_stratified.pdf", width = 12, height = 12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/upsetplot_sex_stratified.pdf", width = 12, height = 12)
  upset(fromList(input), order.by= "freq", nsets=3, line.size=1.5, text.scale= c(5,5,4.5,2.0,5,5))
  dev.off()
 ```
@@ -118,7 +118,7 @@ This chunk generates a variable called "male_shared" which stores the pathway in
 ```{r Male Matrix subset 1}
 male_shared <- tumor_tumor_adjacent_male[which(tumor_tumor_adjacent_male$Pathway.name %in% female_all_subset$Pathway.name), ]
 
-write.csv(male_shared$Pathway.name, "~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Shared Pathways.csv")
+write.csv(male_shared$Pathway.name, "~/Desktop/ResearchProjects/LiverCancerProject/PathwayAnalysisResults/SharedPathways.csv")
 ```
 
 This code creates a variable that contains the pathway information for the 10 pathways that are unique to the female tumor-tumor adjacent comparison. This is done by finding the pathways in the "female_all_subset" variable that are **not** in the "male_all_subset" variable (which contains all the filtered pathway enrichment information from the male tumor-tumor adjacent comparison) and storing it in a variable called "female_unique". The "female_unique" variable is then overwritten by finding the pathways that are in "female_unique" but **not** in the "tumor_tumor_adjacent_Subset" variable (which contains all the filtered pathway enrichment information from the overall tumor-tumor adjacent comparison).  
@@ -166,8 +166,8 @@ Here we are reading a csv that contains in the pathway enrichment information fr
 
 ```{r reading in DEGs}
 
-HBV_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HBV_results.csv")
-HCV_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HCV_results.csv")
+HBV_all <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/HBV_results.csv")
+HCV_all <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/HCV_results.csv")
 
 
 ```
@@ -201,7 +201,7 @@ names(input) <- c("all", "HBV", "HCV")
 
 upset(fromList(input), order.by= "freq", nsets=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/upsetplot_etiology_stratified.pdf", width = 12, height = 12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/upsetplot_etiology_stratified.pdf", width = 12, height = 12)
  upset(fromList(input), order.by= "freq", nsets=3, line.size=1.5, text.scale= c(5,5,4.5,2.0,5,5))
  dev.off()
 ```
@@ -209,7 +209,7 @@ This code creates a variable that stores the 37 pathways shared by all the compa
 ```{r shared pathways}
 shared_etiology <- tumor_tumor_adjacent_HBV[which(tumor_tumor_adjacent_HBV$Pathway.name %in% HCV_all_subset$Pathway.name), ]
 
-write.csv(shared_etiology, "~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/all_shared_etiology_pathways.csv")
+write.csv(shared_etiology, "~/Desktop/ResearchProjects/LiverCancerProject/PathwayAnalysisResults/all_shared_etiology_pathways.csv")
 ```
 
 This code creates a variable that stores the 7 pathways that are unique to the HBV tumor-tumor adjacent comparisons. 
@@ -253,10 +253,10 @@ unique_to_all <- unique_to_all[-which(unique_to_all$Pathway.name %in% HCV_all_su
 This chunk is reading in CSV files, that house pathway result data, into variables. The results were obtained by doing a pathway analysis using Reactome on ICGC data where a DEA was performed. The data was subsetted by etiology with sex added as a covariate. The code from the DEA can be found in the RMD file titled "Viral_Etiology_DEA_covariate.RMD". 
 
 ```{r reading in etiology data}
-HBV_covariate <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HBV_covariate_results.csv")
-HCV_covariate <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/HBV_covariate_results.csv")
+HBV_covariate <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/HBV_covariate_results.csv")
+HCV_covariate <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/HBV_covariate_results.csv")
 
-sex_covariate_all <- read.csv("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/tumor tumor adjacent sex covariate.csv")
+sex_covariate_all <- read.csv("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/tumor tumor adjacent sex covariate.csv")
 ```
 
 The pathway information is being filtered by a false discovery rate (FDR) of less than 0.05.
@@ -294,14 +294,14 @@ names(input) <- c("all", "HBV", "HCV")
 
 upset(fromList(input), order.by= "freq", nsets=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/Etiology Stratified with Sex as a Covariate Upset Plot.pdf", width = 12, height = 12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/PathwayAnalysisResults/EtiologyStratifieSexCovariateUpsetPlot.pdf", width = 12, height = 12)
  upset(fromList(input), order.by= "freq", nsets=3, point.size = 3, line.size=2, text.scale= c(5,5,4.5,2.0,5,5))
  dev.off()
 ```
 ```{r covariate shared etiology}
 shared_etiology_covariate <- sex_subset_HBV_covariate[which(sex_subset_HBV_covariate$Pathway.name %in% HCV_covariate_subset$Pathway.name), ]
 
-write.csv(shared_etiology, "~/Desktop/Research Projects/Liver Cancer Project/Pathway Analysis Results/covariate_shared_etiology_pathways.csv")
+write.csv(shared_etiology, "~/Desktop/ResearchProjects/LiverCancerProject/PathwayAnalysisResults/covariate_shared_etiology_pathways.csv")
 ```
 
 ```{r unique to all}
