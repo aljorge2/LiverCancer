@@ -1,0 +1,203 @@
+---
+title: "Survival Analysis Full Data"
+output: html_document
+date: '12-11-2023'
+---
+
+# **Purpose:** 
+
+Perform survival analysis for the full RIKEN cohort males vs. females and subset by etiology and tumor stage
+
+
+# **Results:**
+
+### Load libraries
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(survminer)
+library(survival)
+```
+
+### Read in data
+```{r}
+HCC_metadata <- as.data.frame(read.csv("~/Desktop/ResearchProjects/LiverCancer/Metadata/ICGC_japan_HCC_WGS_samples_info.csv"))
+Clinical_metadata <- as.data.frame(read.csv("~/Desktop/ResearchProjects/LiverCancer/Metadata/Full_RIKEN_clinical_data.csv"))
+
+Clinical_metadata$ID <- gsub("_.*", "", Clinical_metadata$ID)
+```
+
+### Match data
+```{r}
+Clinical_metadata <- Clinical_metadata[which(Clinical_metadata$ID %in% HCC_metadata$submitted_donor_id),]
+HCC_metadata <- HCC_metadata[which(HCC_metadata$submitted_donor_id %in% Clinical_metadata$ID),]
+Clinical_metadata <- Clinical_metadata[match(HCC_metadata$submitted_donor_id, Clinical_metadata$ID),]
+
+identical(HCC_metadata$submitted_donor_id, Clinical_metadata$ID)
+
+Total_metadata <- cbind(HCC_metadata, Clinical_metadata)
+```
+
+## Survival analysis all males vs. females: 
+```{r}
+for (i in 1:length(Total_metadata$donor_vital_status)){
+  if (Total_metadata$donor_vital_status[i] == "deceased"){
+    Total_metadata$donor_vital_status[i] = 1
+  }
+  if (Total_metadata$donor_vital_status[i] == "alive"){
+    Total_metadata$donor_vital_status[i] =0
+  }
+}
+
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata), pval=TRUE)
+
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SurvivalAnalysis/SurvivalProbabilitybySex.pdf")
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata), pval=TRUE)
+dev.off()
+```
+
+## Survival analysis subset males vs. females - HBV: 
+```{r}
+Total_metadata_HBV <- Total_metadata[which(Total_metadata$Virus.infection=="HBV"),]
+  
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata_HBV), pval=TRUE)
+
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SurvivalAnalysis/SurvivalProbabilitybySexHBVdata.pdf")
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata_HBV), pval=TRUE)
+dev.off()
+```
+
+## Survival analysis subset males vs. females - HCV: 
+```{r}
+Total_metadata_HCV <- Total_metadata[which(Total_metadata$Virus.infection=="HCV"),]
+  
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata_HCV), pval=TRUE)
+
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/SurvivalAnalysis/SurvivalProbabilitybySexHCVdata.pdf")
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata_HCV), pval=TRUE)
+dev.off()
+```
+## Survival analysis subset tumor stage :
+```{r}
+# Find rows where the values in the specified columns are not equal
+unequal_rows <- Total_metadata[Total_metadata$donor_tumour_stage_at_diagnosis != Total_metadata$Ta, ]
+
+# Print the rows where the values are not equal
+print(unequal_rows)
+
+#11 instances where Ta tumor stage column does not mmatch the tumour stage at diagnosis column
+```
+
+```{r}
+#using tumor stage at diagnosis
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_tumour_stage_at_diagnosis, data=Total_metadata), pval=TRUE)
+```
+
+```{r}
+#using Ta
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Ta, data=Total_metadata), pval=TRUE)
+```
+
+## Survival analysis subset Stage - Male
+```{r}
+Total_metadata_male <- Total_metadata[which(Total_metadata$donor_sex=="male"),]
+
+#using tumor stage at diagnosis
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_tumour_stage_at_diagnosis, data=Total_metadata_male), pval=TRUE)
+```
+
+```{r }
+#using Ta
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Ta, data=Total_metadata_male), pval=TRUE)
+```
+
+## Survival analysis subset tumor stage - female
+```{r}
+Total_metadata_female <- Total_metadata[which(Total_metadata$donor_sex=="female"),]
+
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_tumour_stage_at_diagnosis, data=Total_metadata_female), pval=TRUE)
+```
+
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Ta, data=Total_metadata_female), pval=TRUE)
+```
+
+## Survival analysis subset by alcohol 
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata), pval=TRUE)
+```
+
+## Survival analysis subset alcohol intake - males
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata_male), pval=TRUE)
+```
+
+## Survival analysis subset alcohol intake - females
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata_female), pval=TRUE)
+```
+
+## Survival analysis subset smoking 
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Smoking, data=Total_metadata), pval=TRUE)
+```
+
+## Survival Analysis subset by Smoking - males
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Smoking, data=Total_metadata_male), pval=TRUE)
+```
+
+## Survival analysis subset smoking - females
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Smoking, data=Total_metadata_female), pval=TRUE)
+```
+
+## Survival analysis subset males vs. females - Neither: 
+```{r}
+#Total_metadata_NBNC <- Total_metadata[which(Total_metadata$Virus.infection=="NBNC"),]
+  
+#ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata_NBNC), pval=TRUE)
+
+#pdf("C:/Documents/3.0 Hasting Research/Liver Cancer Analysis/Survival/NBNC_data_survival.pdf")
+#ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~donor_sex, data=Total_metadata_NBNC), pval=TRUE)
+#dev.off()
+```
+
+## Read in French Liver cancer data
+```{r}
+#data_HCC <- as.data.frame(read.table("C:/Documents/3.0 Hasting Research/Liver Cancer Analysis/France Liver Cancer/donor.LICA-FR.tsv",sep="\t", header=TRUE))
+#data_HCC <- data_HCC[-which(data_HCC$donor_vital_status==""),]
+
+#for (i in 1:length(data_HCC$donor_vital_status)){
+ # if (data_HCC$donor_vital_status[i] == "deceased"){
+  #  data_HCC$status[i] = 1
+  #}
+  #if (data_HCC$donor_vital_status[i] == "alive"){
+  #  data_HCC$status[i] =0
+  #}
+#}
+
+#ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(status))~donor_sex, data=data_HCC), pval=TRUE)
+
+#pdf("C:/Documents/3.0 Hasting Research/Liver Cancer Analysis/Survival/French_data_survival.pdf")
+#ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(status))~donor_sex, data=data_HCC), pval=TRUE)
+#dev.off()
+```
+
+**Interpretation:**
+
+* Across a combination of all of the data, there is significantly worse prognosis for females than males
+
+* In no subset is the difference significant
+
+* There are significant differences in survival based on tumor stage (based on both Ta variable and tumor_stage at diagnosis)
+
+* There are significant differences in survival based on tumor stage in both male and female samples.
+
+* There are no significant differences in survival based on smoking
+
+* There are no significant differences in survival based on Alcohol Intake
+
+**Future steps:**
+
+* Integrate into final figure
+
