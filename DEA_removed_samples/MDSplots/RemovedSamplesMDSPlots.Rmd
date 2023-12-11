@@ -423,7 +423,7 @@ colnames(identifiers)<- c("stage","sex","viral","grade","Smoking")
 ```
 ```{r plot smoking}
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/smoking.pdf")
-plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+plotMDS(Tumor, top = 25, dim.plot = c(3,4), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
                gene.selection = "common")
@@ -435,7 +435,7 @@ legend("center", pch=c(17, 15),
        legend=c("Female", "Male"))
 dev.off()
 
-plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+plotMDS(Tumor, top = 25, dim.plot = c(3,4), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
                gene.selection = "common")
