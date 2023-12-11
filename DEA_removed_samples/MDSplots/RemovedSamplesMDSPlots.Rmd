@@ -423,7 +423,7 @@ colnames(identifiers)<- c("stage","sex","viral","grade","Smoking")
 ```
 ```{r plot smoking}
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/smoking.pdf")
-plotMDS(Tumor, top = 25, dim.plot = c(3,4), plot=TRUE, cex=2,
+plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
                gene.selection = "common")
@@ -435,7 +435,7 @@ legend("center", pch=c(17, 15),
        legend=c("Female", "Male"))
 dev.off()
 
-plotMDS(Tumor, top = 25, dim.plot = c(3,4), plot=TRUE, cex=2,
+plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
                gene.selection = "common")
@@ -454,13 +454,13 @@ colnames(identifiers)<- c("stage","sex","viral","grade","Smoking", "Alcohol")
 
 ```{r alcohol mds plot}
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/alcohol.pdf")
-mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col= ifelse(identifiers$Alcohol=="0","#FFC20A",
                            ifelse(identifiers$Alcohol=="1", "#E66100",
                                  ifelse(identifiers$Alcohol=="2", "#40B0A6","#006CD1"))), gene.selection = "common")
 
-legend("bottomright", pch=c(15), 
+legend("bottomleft", pch=c(15), 
       col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
       legend=c("No alcohol","Severity 1", "Severity 2","Severity 3")) 
 
@@ -469,7 +469,7 @@ legend("topleft", pch=c(17, 15),
 legend=c("Female", "Male")) 
 dev.off()
 
-mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col= ifelse(identifiers$Alcohol=="0","#FFC20A",
                            ifelse(identifiers$Alcohol=="1", "#E66100",

@@ -126,13 +126,14 @@ TumorStage
 Here is a paired percentage bar graph showing the percent of male and females samples in each tumor stage.
 ```{r percentage graph}
 
-# Sample data
+# Sample data with sex, stage, and counts
 data <- data.frame(
   Sex = rep(c("Males", "Females"), each = 4),
   Category = rep(c("Stage 1", "Stage 2", "Stage 3", "Stage 4"), times = 2),
   Percentage = c(17, 48, 36, 7, 10, 24, 6, 2)
 )
 
+#colors for graph
 custom_colors <- c("#40B0A6", "#FFC20A")
 
 # Calculate the percentages within each group
@@ -158,6 +159,7 @@ MaleNodes<- nrow(Male[Male$N=="1",])
 FemaleNodes<- nrow(Female[Female$N=="1",])
 print(MaleNodes)
 print(FemaleNodes)
+
 #counting number of samples without metastasis
 MaleMetastasis<- nrow(Male[Male$M=="1",])
 FemaleMetastasis<- nrow(Female[Female$M=="1",])
@@ -196,10 +198,13 @@ FemaleEg4<- nrow(Female[Female$Edmondson.grade=="4", ])
 EdmondsonGrade<- data.frame(Males= c(MaleEg0,MaleEg1,MaleEg1.5,MaleEg2,MaleEg2.5,MaleEg3,MaleEg4), Females= c(FemaleEg0,FemaleEg1, FemaleEg1.5, FemaleEg2,FemaleEg2.5,FemaleEg3,FemaleEg4))
 rownames(EdmondsonGrade)<- c(0,1,1.5,2,2.5,3,4)
 
+#chi square test alpha 0.05 
 chisq.test(EdmondsonGrade)
 
 #ran using different integrator because of warning
 chisq.test(EdmondsonGrade, simulate.p.value = TRUE, B = 10000)
+
+#cannot reject null
 ```
 
 CONCLUSION: We are 95 percent confident that the proportion of males and females at each Edmondson Grade is the same. This variable does not need further analysis.
@@ -226,7 +231,7 @@ EdmondsonGrade
 Below is a percentage paired bar plot showing the percentage of male and female samples at each Edmondson Grade.
 ```{r percentage graph}
 
-# Sample data
+# Sample data with sex grade and count data
 data <- data.frame(
   Sex = rep(c("Males", "Females"), each = 7),
   Category = rep(c("Grade 0", "Grade 1", "Grade 1.5", "Grade 2", "Grade 2.5", "Grade 3", "Grade 4"), times = 2),
@@ -298,6 +303,7 @@ Female4F<- nrow(Female[Female$Liver.fibrosisc== "4", ])
 
 LiverFibrosis<- data.frame(Males= c(Male0F,Male1F,Male2F,Male3F,Male4F), Females= c(Female0F, Female1F, Female2F,Female3F,Female4F))
 
+#chi square test alpha 0.05 
 chisq.test(LiverFibrosis)
 
 #using different integrator because of warning
@@ -327,7 +333,7 @@ LiverFibrosis
 Below is a percentage paired bar plot showing the percentage of male and female samples at each level of Liver Fibrosis.
 ```{r percentage graph}
 
-# Sample data
+# Sample data with sex level of fibrosis and count data
 data <- data.frame(
   Sex = rep(c("Males", "Females"), each = 5),
   Category = rep(c("Severity 0", "Severity 1", "Severity 2", "Severity 3", "Severity 4"), times = 2),
@@ -373,35 +379,32 @@ FemaleAlcohol<- as.data.frame(cbind(Female0,Female1,Female2,Female3))
 AlcoholIntake<- as.data.frame(cbind(Males= c(Male0,Male1,Male2,Male3), Females= c(Female0, Female1, Female2,Female3)))
 rownames(AlcoholIntake)<- c(0,1,2,3)
 
+#chi square test alpha of 0.05
 chisq.test(AlcoholIntake)
 # reject null hypothesis
 ```
 
 CONCLUSION: We are 95% confident that the proportion of males and females who intake alcohol is different. This variable needs further analysis.
 
-Here are two histograms showing the raw counts of males and females at each level of alcohol intake.  
-```{r Alcohol Intake Histograme}
-#Alcohol Intake Male Histogram
-barplot(AlcoholIntake$Males,ylim = c(0,40),
-        names.arg = c(0, 1, 2, 3),  # X-axis labels
-        col = "skyblue",            # Bar color
-        border = "black",           # Bar border color
-        main = "Male Alcohol Intake Histogram", # title name
-        xlab = "Alcohol Intake Severity",
-        ylab = "Counts",
-        space = 0 ) 
+Here is a paired barplot showing the raw counts of males and females at each level of alcohol intake.  
+```{r data transform Alcohol Intake}
 
-# Female Alcohol Intake  Histogram
-
-barplot(AlcoholIntake$Females, ylim= c(0,40),
-        names.arg = c(0, 1, 2, 3),  # X-axis labels
-        col = "skyblue",            # Bar color
-        border = "black",           # Bar border color
-        main = "Female Alcohol Intake Histogram", # title name
-        xlab = "Alcohol Intake Severity",
-        ylab = "Counts",
-        space = 0 )   
+#transposing data for paired bar plot
+AlcoholIntake <- t(AlcoholIntake)
+AlcoholIntake <- as.matrix(AlcoholIntake)
 ```
+```{r Alcohol Intake Paired Bar plot}
+#paired bar plot
+barplot(AlcoholIntake, beside = TRUE, ylim = c(0,40), col = c("#FFC20A", "#40B0A6"), names.arg = c(0,1,2,3),
+       legend.text = c("Males", "Females"), xlab = "Level of Severity", ylab = "Counts",
+       main = "Alcohol Intake Paired Bar Plot")
+```
+```{r data transformation Alcohol Intake}
+#transposing data
+AlcoholIntake <- as.data.frame(AlcoholIntake)
+AlcoholIntake <- t(AlcoholIntake)
+```
+
 Here is a sample table for males and female patients alcohol intake. The level of severity is the row name.
 ```{r total columns alcohol}
 #sums of rows in Alcoholintake
@@ -424,7 +427,7 @@ AlcoholIntake
 Below is a percentage paired bar plot showing the percentage of male and female sample at each level of alcohol intake.
 ```{r percentage graph}
 
-# Sample data
+# Sample data sex level of alcohol intake and sample count
 data <- data.frame(
   Sex = rep(c("Males", "Females"), each = 4),
   Category = rep(c("Level 0", "Level 1", "Level 2", "Level 3"), times = 2),
@@ -451,12 +454,12 @@ ggplot(data, aes(x = Category, y = Percentage, fill = Sex, group = Sex)) +
 ### **Test of Proportions Smoking Males and Females** 
 Smoking is a dichotomous variable so we will conduct a test of proportions
 ```{r smoking z test}
-#proportion of male smokers
+#number of male smokers
 MaleSmokers<-sum(Male$Smoking)
 MaleSmokers
 
 
-#proportion of female smokers
+#number of female smokers
 FemaleSmokers<- sum(Female$Smoking)
 FemaleSmokers
 
@@ -471,6 +474,29 @@ prop.test(x=c(MaleSmokers,FemaleSmokers), n= c(108,42), p = NULL, alternative = 
 
 CONCLUSION: We are 95% confident that the proportion of males and females who smoke are different. Since 77% of males smoke and 9% of females smoke it is clear that more males that females smoke.
 
+```{r percentage bar plot smoking}
+#creating data frame with sex, smoking, and sample counts
+data <- data.frame(
+  Sex = rep(c("Males", "Females"), each = 2),
+  Category = rep(c("Does Smoke", "Does Not Smoke"), times = 2),
+  Percentage = c(83,25,4,38))
+
+custom_colors <- c("#40B0A6", "#FFC20A")
+
+# Calculate the percentages within each group
+data <- transform(data, Percentage = Percentage / tapply(Percentage, Sex, sum)[Sex] * 100)
+
+# Create a percentage paired bar graph
+ggplot(data, aes(x = Category, y = Percentage, fill = Sex, group = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Percentage Bar Graph Smoking",
+       x = "Smoking",
+       y = "Percentage") +geom_text(aes(label = sprintf("%.1f%%", Percentage)),
+            position = position_dodge(width = 0.9),    # Adjust the width as needed
+            vjust = -0.5, hjust = 0.5, size = 3) +  scale_fill_manual(values = custom_colors) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  theme_minimal()
+```
 ## **CHI square Prognosis**
 Sincle prognosis is a categorical variable a chi square homogenity of proportions will be conducted.
 ```{r Prognosis}
@@ -519,7 +545,7 @@ Prognosis
 ```
 ```{r percentage graph}
 
-# Sample data
+# Sample data with sex level of prognosis and sample count
 data <- data.frame(
   Sex = rep(c("Males", "Females"), each = 4),
   Category = rep(c("Level 0", "Level 1", "Level 2", "Level 3"), times = 2),
