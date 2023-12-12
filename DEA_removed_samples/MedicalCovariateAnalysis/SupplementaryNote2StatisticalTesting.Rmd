@@ -4,7 +4,7 @@ author: "Annika Jorgensen"
 date: "2023-12-11"
 output: html_document
 ---
-PURPOSE: This document is to conduct statistical testing to see if any variables in the metadata are significantly different between males and females. For variables deemed significant further investigation will be done via MDS analysis and these variables may be incorportated as covariates in our DEA. 
+PURPOSE: This document is to conduct statistical testing to see if any variables in the metadata are significantly different between males and females. For variables deemed significant further investigation will be done via MDS analysis and survival analysis. These variables may be incorportated as covariates in our DEA. 
 
 METHODS: Using R functions, statistical testing will be done on variables found in the metadata. The following variables will be testing 
 
@@ -18,7 +18,7 @@ METHODS: Using R functions, statistical testing will be done on variables found 
 -- Alcohol Intake
 -- Smoking
 -- Prognosis
--- Survival Months
+-- Survival Month
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -39,7 +39,7 @@ metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancerProject/DEA_rem
 ```
 
 
-Subsetting metadata such that analyses can be conducted. The curated metadata set only has the samples in the analysis that we want to analyze. However, the curated metadata doesn't contain the full metadata. So, the full metadata set was subsetted for only the samples that we want to study.
+Subsetting metadata such that analyses can be conducted. The curated metadata set only has the samples in the analysis that we want to analyze. However, the curated metadata doesn't contain the full metadata. So, the full metadata set was subsetted by matching the sample names in the curated dataset for only the samples that we want to study.
 ```{r subsetting data}
 #subsetting full metadata for samples used in analysis
 metadataAnalysis <- metadata[rownames(metadata) %in% metadataSmall$ID,]
@@ -53,7 +53,7 @@ Female <- metadataAnalysis[which(metadataAnalysis$Gender== "F"),]
 
 
 ### **F and T test age of males and females**
-Age is a numerical variable so a two-sample t test will be used to identify if the variable is statistically significant. To figure out the type of t test we want to use an f test is used to determine whether or not the variances between the two datasets are equal or not. A significance level of 0.05 is used.
+Age is a numerical variable so a two-sample t test will be used to identify if the variable is statistically significant. To figure out the type of t test we want to use an f test is employed to determine whether or not the variances between the two datasets are equal or not. A significance level of 0.05 is used.
 ```{r Age difference data}
 #subsetting age of male samples
 MaleAge<- Male$Age
@@ -67,7 +67,7 @@ var.test(MaleAge, FemaleAge) #Fail to reject null no evidence variance different
 #variances equal
 ```
 
-The p value is 0.1851 so therefore we fail to reject the null hypothesis. So, we will conduct a t test with equal variance.
+The p value is 0.1851 so therefore we fail to reject the null hypothesis. We will conduct a t test with equal variance.
 
 ```{r t test age }
 #t test alpha=0.05
@@ -78,8 +78,23 @@ The mean age of males is 65.61 years and the mean age of females is 68.47. The p
 
 CONCLUSION: We are 95% confident that the mean age of male patients compared to female patients is not significantly different. This variable will not be further analyzed. 
 
+Here we are creating two side by side box and whisker plots showing the distribution of male and female ages
+
+```{r}
+# Create side-by-side boxplots
+par(mfrow = c(1, 2))  # Set up a 1x2 layout for two plots
+
+# Boxplot for MaleAge
+boxplot(MaleAge, main = "Distribution of Male Ages", ylab = "Ages", col = "#FFC20A")
+
+# Boxplot for FemaleAge
+boxplot(FemaleAge, main = "Distribution of Female Ages", ylab = "Ages", col = "#40B0A6")
+
+# Reset the layout to default (1x1) after creating the plots
+par(mfrow = c(1, 1))
+```
 ## **Tumor Stage CHI-square**
-Since Tumor Stage is a categorical variable a CHI square homogenity of proportions test was conducted using the chisq.test function.
+Since Tumor Stage is a categorical variable a CHI square homogenity of proportions test was conducted using the chisq.test function. A significance level of 0.05 is used
 ```{r counts}
 #male stage separated by severity 
 Male1st<- nrow(Male[Male$Ta== "1", ])
@@ -97,6 +112,7 @@ Female4st<- nrow(Female[Female$Ta== "4", ])
 TumorStage<- data.frame(Males= c(Male1st,Male2st,Male3st,Male4st), Females= c(Female1st, Female2st, Female3st,Female4st))
 rownames(TumorStage)<- c(1,2,3,4)
 
+#conducting chi square alpha 0.05
 chisq.test(TumorStage)
 
 #using different integrator because of warning
@@ -209,6 +225,17 @@ chisq.test(EdmondsonGrade, simulate.p.value = TRUE, B = 10000)
 
 CONCLUSION: We are 95 percent confident that the proportion of males and females at each Edmondson Grade is the same. This variable does not need further analysis.
 
+Below is a paired bar plot of raw counts of male and female samples at each Edmondson Grade
+```{r tumor stage paired plot}
+EdmondsonHist <- t(EdmondsonGrade)
+EdmondsonHist <- as.matrix(EdmondsonHist)
+```
+```{r plotting paired plot}
+
+barplot(EdmondsonHist, beside = TRUE, ylim = c(0,70), col = c("#FFC20A", "#40B0A6"), names.arg = c(0,1,1.5,2,2.5,3,4),
+       legend.text = c("Males", "Females"), xlab = "Edmondson Grade", ylab = "Counts",
+       main = "Edmondson Grade Paired Bar Plot")
+```
 Listed below is the table show the counts of males and females with each Edmondson grade The row names are the levels of Edmondson Grade
 ```{r counts Edmondson grade}
 #sums of rows in EdmondsonGrade
@@ -282,6 +309,22 @@ The mean male tumor size is 41.314 and the mean female tumor size is 33.52. The 
 
 CONCLUSION:We are 95% confident that the mean tumor size (in mm) is not significantly different between males and females. We will not conduct further analysis on this variable.
 
+Here two box and whisker plots are created side by side showing the male and female distribution of tumor size. 
+
+```{r}
+# Create side-by-side boxplots
+par(mfrow = c(1, 2))  # Set up a 1x2 layout for two plots
+
+# Boxplot for MaleAge
+boxplot(MaleSize, main = "Distribution of Male Tumor Size", ylab = "Size in mm", col = "#FFC20A")
+
+# Boxplot for FemaleAge
+boxplot(FemaleSize, main = "Distribution of Female Tumor Size", ylab = "Size in mm", col = "#40B0A6", ylim = c(0,300))
+
+# Reset the layout to default (1x1) after creating the plots
+par(mfrow = c(1, 1))
+```
+
 ## **Liver Fibrosis CHI-square**
 Since Liver Fibrosis is a categorical variable a CHI square homogenity of proportions test was conducted using the chisq.test function.
 ```{r Liver Fibrosis}
@@ -340,7 +383,7 @@ data <- data.frame(
   Percentage = c(5, 13, 25, 26, 39, 0, 3, 5, 14, 20)
 )
 
-custom_colors <- c("#40B0A6", "#FFC20A")
+custom_colors <- c("#40B0A6", "#FFC20A") # colors denoting the sex
 
 # Calculate the percentages within each group
 data <- transform(data, Percentage = Percentage / tapply(Percentage, Sex, sum)[Sex] * 100)
@@ -358,7 +401,7 @@ ggplot(data, aes(x = Category, y = Percentage, fill = Sex, group = Sex)) +
 
 ```
 ## **CHI-squared Alcohol**
-Since Alcohol Intake is a categorical variable a Chi square test will be conducted
+Since Alcohol Intake is a categorical variable a Chi square test will be conducted using chisq.test function.
 ```{r Alcohol}
 #male alcohol intake separated by severity 
 Male0<- nrow(Male[Male$Alcohol.intakee== "0", ])
@@ -474,6 +517,7 @@ prop.test(x=c(MaleSmokers,FemaleSmokers), n= c(108,42), p = NULL, alternative = 
 
 CONCLUSION: We are 95% confident that the proportion of males and females who smoke are different. Since 77% of males smoke and 9% of females smoke it is clear that more males that females smoke.
 
+Here a paired bar plot showing the percentages of males and females who do and do not smoke is created.
 ```{r percentage bar plot smoking}
 #creating data frame with sex, smoking, and sample counts
 data <- data.frame(
@@ -543,6 +587,8 @@ rownames(Prognosis)<- c("0","1","2","3","Totals")
 ```{r prognosis output}
 Prognosis
 ```
+
+Here a paired bar plot with is created showing the percentage of male and female samples and each level of prognosis
 ```{r percentage graph}
 
 # Sample data with sex level of prognosis and sample count
