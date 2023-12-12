@@ -15,10 +15,7 @@ Author: Annika Jorgensen
 Date: 06/07/2023 
 
 **Purpose**
-This script is meant to remove the samples that were found to be outliers and then remake the MDS plot 
-
-**Methods**
-
+The purpose of this file is twofold. This script is meant to remove the samples that were found to be low quality and then remake the MDS plot to illustrate the low quality samples were removed. This script also conducts MDS analysis on a number of variables in the metadata thought to be significantly different between males and females to see if the variables are potentially driving variation in the tumor samples.
 
 **Results**
 ### **Libraries**
@@ -228,12 +225,13 @@ v <- voomWithQualityWeights(dge, design, plot=TRUE)
 ```
 
 **Top 25 gene MDS Plot**
-This creates outputs an MDS Plot that we've previously see showing the dissimilarity between Male and Female Tumor-Tumor adjacent 
 
+Recreating the MDS plot we have seen previously with the removed samples to see if all low quality samples have been removed.
 ```{r Library Type Correction}
 # Removing batch effects
 vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
-write.csv(vCorrectLibtype,"~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/data/MDSplotData.csv")
+
+#creating MDS plot top 25 genes PC 1 and 2 coloring by lesion type and sex
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_top_25_genes.pdf")
 mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
@@ -273,36 +271,55 @@ legend("topright", pch=c(17, 15, 16, 3),
        legend=c("HBV", "HCV"))
 ```
 
+the variable "identifiers" is a dataframe that houses all of the metadata information of the samples. The information is pull from the voom output and in order to ensure the sample order matches the expression data we are plotting I use the identical function. The data frame includes the following information (note that many of the number levels seem to be off by one that is intentional as variables were zero indexed and R changed them because it one indexed)
+
+-- The sample ID. Column name is id 
+
+-- The lesion type where 1 means tumor - adjacent and 2 means tumor (identifiers is quickly subsetted to just include tumor samples so all values should say 2). Column name is tumor.
+
+-- Tumor stage where 1 means stage 1, 2 means stage, 3 means stage 3, 4 means stage 4. Column name is stage.
+
+-- Sex of the sample where M means male and F means female. Column name is sex.
+
+-- Edmondson grade of the tumor sample where 1 means grade 1, 1~2 means grade 1.5, 2 means grade 2, 2~3 means grade 2.5, 3 means grade 3 and 4 means grade 4. NA values were replaced with zeros because we are assuming the lack of a value means that the tumor was not graded. Column name is grade 
+
+-- Viral etiology of the tumor sample where 1 means HBV and 2 means HCV. Column name is viral.
+
+-- Whether or not patient smokes where 1 means sample does not smoke and two means sample does smoke. Column name is smoking
+
+-- Level of liver fibrosis in the sample. Where 1 means liver fibrosis severity of zero, 2 means liver fibrosis severity of one, 3 means liver fibrosis severity of two, 4 means liver fibrosis severity of three, and five means liver fibrosis severity of four. Column name is fibrosis.
+
+-- Alcohol intake of the sample where where 1 means alcohol intake level zero, 2 means alcohol intake level one, 3 means alcohol intake level two, 4 means alcohol intake level three. Column name is alcohol
+
 ```{r Tumor Samples}
-#creating column with stage and sex information 
-viral<- as.data.frame(v[["targets"]][["viral"]])
-identifiers<- cbind(stage=v[["targets"]][["Ta"]],sex=v[["targets"]][["sex"]], viral)
+#creating data frame with metadata variables
+identifiers<- cbind(id = v[["targets"]][["ID"]], tumor = v[["targets"]][["tumor"]], stage = v[["targets"]][["Ta"]], sex=v[["targets"]][["sex"]], grade = v[["targets"]][["edmonson_grade"]], viral = v[["targets"]][["viral"]], smoking = v[["targets"]][["smoking"]], fibrosis = v[["targets"]][["fibrosis"]], alcohol = v[["targets"]][["alcohol"]])
 
-#getting expression data from voom output
-samples<- as.data.frame(v)
-
-#removing columns that do not contain expression data
-samples<- subset(samples, select = -c(chr, start, end, TXNAME, GENEID, length,gene_name))
-
-#rownames of stage column contain samples names
-rownames(identifiers)<- colnames(samples)
-
-
-#subsetting by tumor samples
-identifiers<-identifiers[grepl("tumor",rownames(identifiers),fixed=TRUE),]
 identifiers<- as.data.frame(identifiers)
 
-# checking number of female and male tumor samples match 
+#removing NAs fram edmondson grade and replacing with zero
+identifiers$grade <- ifelse(is.na(identifiers$grade), 0, identifiers$grade)
+
+#subsetting by tumor samples
+subset_condition <- which(identifiers$tumor == "2")
+identifiers <- identifiers[subset_condition, ]
+
+#subsetting expression data to tumor samples
 Tumor<- vCorrectLibtype[, grepl("tumor",colnames(vCorrectLibtype),fixed=TRUE)]
 Tumor<- as.data.frame(Tumor)
 
-are_rownames_matching <- identical(rownames(identifiers), colnames(Tumor))
-print(are_rownames_matching)
+#extracting id from sample name since the column name includes additional information
+first_five_chars <- substr(colnames(Tumor), 1, 5)
+
+#checking if sample orders match 
+result <- identical(identifiers$id, first_five_chars)
+print(result)
 
 ```
 
+MDS plot was created to see if tumor stage was driving signal. Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r tumor sample variation}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_25_genes.pdf")
+#creating MDS plot top 25 genes PC 1 and 2 coloring by tumor stage
 mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col= ifelse(identifiers$stage=="1","#FFC20A",
@@ -318,77 +335,13 @@ legend=c("Female", "Male"))
 
 ```
 
-```{r tumor sample variation}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_50_genes.pdf")
-mds <- plotMDS(Tumor, top = 50, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
-            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$stage=="1","#FFC20A",
-                           ifelse(identifiers$stage=="2", "#E66100",
-                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
-
-legend("bottom", pch=c(15), 
-      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
-      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4")) 
-
-legend("top", pch=c(17, 15),
-     col=c("black"),
-legend=c("Female", "Male"))  
-```
-
-```{r tumor sample variation}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_100_genes.pdf")
-mds <- plotMDS(Tumor, top = 100, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
-            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$stage=="1","#FFC20A",
-                           ifelse(identifiers$stage=="2", "#E66100",
-                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
-
-legend("bottom", pch=c(15), 
-      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
-      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4")) 
-
-legend("top", pch=c(17, 15),
-     col=c("black"),
-legend=c("Female", "Male"))           
-```
-
-```{r tumor sample variation}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_tumor_top_1000_genes.pdf")
-mds <- plotMDS(Tumor, top = 1000, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
-            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$stage=="1","#FFC20A",
-                           ifelse(identifiers$stage=="2", "#E66100",
-                                 ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
-
-legend("bottom", pch=c(15), 
-      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
-      legend=c("Stage 1","Stage 2", "Stage 3","Stage 4")) 
-
-legend("top", pch=c(17, 15),
-     col=c("black"),
-legend=c("Female", "Male"))         
-```
-
-```{r adding smoking}
-tumorMetadataSubset <- metadataSubset[grepl("tumor",rownames(metadataSubset),fixed=TRUE),]
-are_rownames_matching <- identical(rownames(identifiers), rownames(tumorMetadataSubset))
-print(are_rownames_matching)
-
-tumorMetadataSubset <- tumorMetadataSubset[match(rownames(tumorMetadataSubset), rownames(identifiers)),]
-are_rownames_matching <- identical(rownames(tumorMetadataSubset), rownames(identifiers))
-print(are_rownames_matching)
-
-
-identifiers<- cbind(identifiers,tumorMetadataSubset$Edmondson_grade)
-colnames(identifiers)<- c("stage","sex","viral","grade")
-```
-
+MDS plot was created to see if viral etiology was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r virus}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/virus.pdf")
-plotMDS(Tumor, top = 1000, dim.plot = c(1,2), plot=TRUE, cex=2,
+#creating MDS plot top 25 genes principal component 1 and 2 coloring by viral etiology
+plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col=ifelse(identifiers$viral %in% c("HBV"), "#1A85FF", 
-                          ifelse(identifiers$viral %in% c("HCV"), "#D41159", "black")),
+               col=ifelse(identifiers$viral %in% c("1"), "#1A85FF", #1 means HBV
+                          ifelse(identifiers$viral %in% c("2"), "#D41159", "black")), #2 means HCV
                gene.selection = "common")
 legend("top", pch=c(15), 
        col=c("#D41159", "#1A85FF") ,
@@ -398,8 +351,8 @@ legend("center", pch=c(17, 15),
        legend=c("Female", "Male"))
 ```
 
+MDS plot was created to see if Edmondson Grade was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r edmondson grade}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/testing.pdf")
 plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
               col= ifelse(identifiers$grade=="0","red",
@@ -417,19 +370,16 @@ legend("center", pch=c(17, 15),
        legend=c("Female", "Male"))
 ```
 
-```{r smoking}
-identifiers<- cbind(identifiers,tumorMetadataSubset$Smoking)
-colnames(identifiers)<- c("stage","sex","viral","grade","Smoking")
-```
+MDS plot was created to see if Smoking was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r plot smoking}
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/smoking.pdf")
 plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
+               col=ifelse(identifiers$smoking %in% c("1"), "#D41159", "#1A85FF"),
                gene.selection = "common")
 legend("bottomright", pch=c(15), 
-       col=c("#D41159", "#1A85FF") ,
-       legend=c("Not smoking", "Smoking"))
+       col=c("#1A85FF", "#D41159") ,
+       legend=c("Smoking", "Not smoking"))
 legend("center", pch=c(17, 15),
        col=c("black"),
        legend=c("Female", "Male"))
@@ -437,28 +387,24 @@ dev.off()
 
 plotMDS(Tumor, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col=ifelse(identifiers$Smoking %in% c("1"), "#1A85FF", "#D41159"),
+               col=ifelse(identifiers$smoking %in% c("1"), "#D41159","#1A85FF"),
                gene.selection = "common")
 legend("topleft", pch=c(15), 
-       col=c("#D41159", "#1A85FF") ,
-       legend=c("Not smoking", "Smoking"))
+       col=c("#1A85FF", "#D41159") ,
+       legend=c("Smoking", "Not Smoking"))
 legend("center", pch=c(17, 15),
        col=c("black"),
        legend=c("Female", "Male"))
 ```
 
-```{r alcohol}
-identifiers<- cbind(identifiers,tumorMetadataSubset$Alcohol_intake)
-colnames(identifiers)<- c("stage","sex","viral","grade","Smoking", "Alcohol")
-```
-
+MDS plot was created to see if Alcohol Intake was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r alcohol mds plot}
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/alcohol.pdf")
-mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$Alcohol=="0","#FFC20A",
-                           ifelse(identifiers$Alcohol=="1", "#E66100",
-                                 ifelse(identifiers$Alcohol=="2", "#40B0A6","#006CD1"))), gene.selection = "common")
+               col= ifelse(identifiers$alcohol=="1","#FFC20A", #one means intake level zero
+                           ifelse(identifiers$alcohol=="2", "#E66100", #two means intake level one
+                                 ifelse(identifiers$alcohol=="3", "#40B0A6","#006CD1"))), gene.selection = "common") # three means intake level two
 
 legend("bottomleft", pch=c(15), 
       col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
@@ -469,11 +415,11 @@ legend("topleft", pch=c(17, 15),
 legend=c("Female", "Male")) 
 dev.off()
 
-mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$Alcohol=="0","#FFC20A",
-                           ifelse(identifiers$Alcohol=="1", "#E66100",
-                                 ifelse(identifiers$Alcohol=="2", "#40B0A6","#006CD1"))), gene.selection = "common")
+               col= ifelse(identifiers$alcohol=="1","#FFC20A",
+                           ifelse(identifiers$alcohol=="2", "#E66100",
+                                 ifelse(identifiers$alcohol=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
 
 legend("bottom", pch=c(15), 
       col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
@@ -484,41 +430,20 @@ legend("top", pch=c(17, 15),
 legend=c("Female", "Male"))  
 ```
 
-```{r fibrosis}
-identifiers<- cbind(identifiers,tumorMetadataSubset$Liver_fibrosisc)
-colnames(identifiers)<- c("stage","sex","viral","grade","Smoking", "Alcohol", "Fibrosis")
-```
-
+MDS plot was created to see if Liver Fibrosis was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r plot fibrosis}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/fibrosis.pdf")
 mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$Fibrosis=="0","#FFC20A",
-                           ifelse(identifiers$Fibrosis=="1", "#E66100",
-                                 ifelse(identifiers$Fibrosis=="2", "#40B0A6",
-                                        ifelse(identifiers$Fibrosis== "3", "#006CD1", "darkblue")))), gene.selection = "common")
+               col= ifelse(identifiers$fibrosis=="1","#FFC20A", #one = fibrosis level zero
+                           ifelse(identifiers$fibrosis=="2", "#E66100", #two = fibrosis level one
+                                 ifelse(identifiers$fibrosis=="3", "#40B0A6",#three = fibrosis level two
+                                        ifelse(identifiers$fibrosis== "4", "#006CD1", "darkblue")))), gene.selection = "common")
 
 legend("center", pch=c(15), 
       col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1", "darkblue"),
       legend=c("No Fibrosis","Severity 1", "Severity 2","Severity 3", "Severity 4")) 
 
 legend("topleft", pch=c(17, 15),
-     col=c("black"),
-legend=c("Female", "Male"))  
-dev.off()
-
-mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
-            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
-               col= ifelse(identifiers$Fibrosis=="0","#FFC20A",
-                           ifelse(identifiers$Fibrosis=="1", "#E66100",
-                                 ifelse(identifiers$Fibrosis=="2", "#40B0A6",
-                                        ifelse(identifiers$Fibrosis== "3", "#006CD1", "darkblue")))), gene.selection = "common")
-
-legend("bottom", pch=c(15), 
-      col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1", "darkblue"),
-      legend=c("No Fibrosis","Severity 1", "Severity 2","Severity 3", "Severity 4")) 
-
-legend("top", pch=c(17, 15),
      col=c("black"),
 legend=c("Female", "Male"))  
 ```
