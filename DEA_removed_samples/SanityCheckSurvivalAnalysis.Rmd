@@ -82,8 +82,7 @@ Just as a reminder
 ```{r}
 cat("There are", alive, "alive patients \n")
 cat("There are", deceased, "deceased patients\n")
-
-patients<- sum(Prog0,Prog1,Prog2,Prog3)
+patients<- sum(alive, deceased)
 cat("There are", patients,"total patients \n")
 ```
 ```{r}
