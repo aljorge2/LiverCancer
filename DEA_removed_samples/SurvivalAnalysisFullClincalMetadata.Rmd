@@ -136,6 +136,32 @@ ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alc
 ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata_female), pval=TRUE)
 ```
 
+## Survival Analysis intakes alcohol versus doesn't intake
+```{r}
+#changing all values that are not zero to one  reducing the variable to does intake alcohol and doesn't intake
+Total_metadata$Alcohol.intakee[Total_metadata$Alcohol.intakee != 0] <- 1
+
+#survival analysis
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata), pval=TRUE)
+```
+
+## Survival Analysis intakes alcohol versus doesn't intake - males
+```{r }
+#changing all values that are not zero to one
+Total_metadata_male$Alcohol.intakee[Total_metadata_male$Alcohol.intakee != 0] <- 1
+
+#survival analysis
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata_male), pval=TRUE)
+```
+
+## Survival Analysis intakes alcohol versus doesn't intake - females
+```{r }
+#changing all values that are not zero to one
+Total_metadata_female$Alcohol.intakee[Total_metadata_female$Alcohol.intakee != 0] <- 1
+
+#survival analysis
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Alcohol.intakee, data=Total_metadata_female), pval=TRUE)
+```
 ## Survival analysis subset smoking 
 ```{r}
 ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Smoking, data=Total_metadata), pval=TRUE)

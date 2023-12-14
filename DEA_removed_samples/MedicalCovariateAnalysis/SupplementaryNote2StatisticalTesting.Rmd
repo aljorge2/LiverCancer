@@ -28,11 +28,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 ```
 
+
 Here the full metadata is read in as a dataframe titled "metadata" and a curated metadata set is titled "metadatasmall"
 ```{r  Reading in data}
 #reading in Full meta dataset
 metadata <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/Full_RIKEN_clinical_data.csv", row.names=1,header=TRUE, sep=",")
+```
 
+```{r}
 #reading in meta dataset
 metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/MedicalCovariateAnalysis/data/metadataSubset.csv", row.names=1)
 
@@ -79,9 +82,38 @@ The mean age of males is 65.61 years and the mean age of females is 68.47. The p
 CONCLUSION: We are 95% confident that the mean age of male patients compared to female patients is not significantly different. This variable will not be further analyzed. 
 
 Here we are creating two side by side box and whisker plots showing the distribution of male and female ages
+```{r}
+Age <- data.frame(Gender = metadataAnalysis$Gender, Age = metadataAnalysis$Age)
+
+ggplot(Age, aes(x = Gender, y = Age, fill = Gender)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  labs(title = "Distribution of Age",
+       x = "Sex",
+       y = "Age") +
+  theme_minimal()
+```
+```{r}
+#getting boxplot statistics for male age
+boxplot.stats(MaleAge)
+```
 
 ```{r}
-# Create side-by-side boxplots
+boxplot.stats(FemaleAge)
+```
+
+```{r}
+FemaleAge<- as.data.frame(FemaleAge)
+ggplot(FemaleAge, aes(y=FemaleAge)) +
+  geom_boxplot() +
+  labs(title = "Distribution of Age",
+       x = "Sex",
+       y = "Age") +
+  theme_minimal()
+
+boxplot(FemaleAge)
+```
+
+```{r}
 par(mfrow = c(1, 2))  # Set up a 1x2 layout for two plots
 
 # Boxplot for MaleAge
@@ -93,19 +125,17 @@ boxplot(FemaleAge, main = "Distribution of Female Ages", ylab = "Ages", col = "#
 # Reset the layout to default (1x1) after creating the plots
 par(mfrow = c(1, 1))
 ```
+
 ```{r}
 pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MedicalCovariateAnalysis/AgeBoxPlot.pdf")
-# Create side-by-side boxplots
-par(mfrow = c(1, 2))  # Set up a 1x2 layout for two plots
+Age <- data.frame(Gender = metadataAnalysis$Gender, Age = metadataAnalysis$Age)
 
-# Boxplot for MaleAge
-boxplot(MaleAge, main = "Distribution of Male Ages", ylab = "Ages", col = "#FFC20A")
-
-# Boxplot for FemaleAge
-boxplot(FemaleAge, main = "Distribution of Female Ages", ylab = "Ages", col = "#40B0A6")
-
-# Reset the layout to default (1x1) after creating the plots
-par(mfrow = c(1, 1))
+ggplot(Age, aes(x = Gender, y = Age, fill = Gender)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  labs(title = "Distribution of Age",
+       x = "Sex",
+       y = "Age") +
+  theme_minimal()
 dev.off()
 ```
 ## **Tumor Stage CHI-square**

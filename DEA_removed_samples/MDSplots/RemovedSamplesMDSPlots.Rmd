@@ -224,6 +224,23 @@ v <- voomWithQualityWeights(dge, design, plot=TRUE)
 
 ```
 
+```{r}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/LibraryTypeStratifiedMDSPlot.pdf")
+mds <- plotMDS(v, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15, 3)),
+               col=ifelse(v$targets$library_type=="stranded", "#1A85FF", 
+                          ifelse(v$targets$library_type=="unstranded", "#D41159", "black")),
+               gene.selection = "common")
+legend("top", pch=c(15), 
+       col=c("#D41159", "#1A85FF") ,
+       legend=c("Unstranded", "Stranded"))
+legend("center", pch=c(17, 15),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+
+dev.off()
+```
 **Top 25 gene MDS Plot**
 
 Recreating the MDS plot we have seen previously with the removed samples to see if all low quality samples have been removed.
@@ -319,6 +336,7 @@ print(result)
 
 MDS plot was created to see if tumor stage was driving signal. Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r tumor sample variation}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/stage.pdf")
 #creating MDS plot top 25 genes PC 1 and 2 coloring by tumor stage
 mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
@@ -326,13 +344,13 @@ mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                            ifelse(identifiers$stage=="2", "#E66100",
                                  ifelse(identifiers$stage=="3", "#40B0A6","#006CD1"))), gene.selection = "common")
 
-legend("bottom", pch=c(15), 
+legend("bottomright", pch=c(15), 
       col=c( "#FFC20A", "#E66100","#40B0A6", "#006CD1"),
       legend=c("Stage 1","Stage 2", "Stage 3","Stage 4"))
-legend("top", pch=c(17, 15),
+legend("topleft", pch=c(17, 15),
      col=c("black"),
 legend=c("Female", "Male"))  
-
+dev.off()
 ```
 
 MDS plot was created to see if viral etiology was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
@@ -429,9 +447,24 @@ legend("top", pch=c(17, 15),
      col=c("black"),
 legend=c("Female", "Male"))  
 ```
+```{r}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/alcoholbinary.pdf")
+mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(3,4), plot=TRUE, cex=2, 
+            pch=ifelse(identifiers$sex %in% c("F"),17, 15),
+               col= ifelse(identifiers$alcohol=="1","#FFC20A","#40B0A6"), gene.selection = "common")
 
+legend("bottom", pch=c(15), 
+      col=c( "#FFC20A", "#40B0A6"),
+      legend=c("No alcohol","Alcohol")) 
+
+legend("top", pch=c(17, 15),
+     col=c("black"),
+legend=c("Female", "Male"))
+dev.off()
+```
 MDS plot was created to see if Liver Fibrosis was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r plot fibrosis}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/fibrosis.pdf")
 mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col= ifelse(identifiers$fibrosis=="1","#FFC20A", #one = fibrosis level zero
@@ -446,4 +479,5 @@ legend("center", pch=c(15),
 legend("topleft", pch=c(17, 15),
      col=c("black"),
 legend=c("Female", "Male"))  
+dev.off()
 ```
