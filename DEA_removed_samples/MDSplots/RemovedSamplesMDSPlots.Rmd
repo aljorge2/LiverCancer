@@ -464,7 +464,6 @@ dev.off()
 ```
 MDS plot was created to see if Liver Fibrosis was driving signal.Principal Components 1-4 were checked on the top 25,50,100,1000 genes were checked. To limit the risk of making a mistake the arguments dim.plot was changed from c(1,2) to c(3,4) to check Principal Components 3 and 4 and then top was changed from 25 to 50, 100, and finally 1000 to check the different gene amounts. No clustering was observed.
 ```{r plot fibrosis}
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/fibrosis.pdf")
 mds <- plotMDS(Tumor, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2, 
             pch=ifelse(identifiers$sex %in% c("F"),17, 15),
                col= ifelse(identifiers$fibrosis=="1","#FFC20A", #one = fibrosis level zero
@@ -479,5 +478,4 @@ legend("center", pch=c(15),
 legend("topleft", pch=c(17, 15),
      col=c("black"),
 legend=c("Female", "Male"))  
-dev.off()
 ```
