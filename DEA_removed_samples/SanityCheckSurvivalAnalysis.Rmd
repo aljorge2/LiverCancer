@@ -1,0 +1,127 @@
+---
+title: "Sanity Check Survival Analysis"
+author: "Annika Jorgensen"
+date: "2023-12-14"
+output: html_document
+---
+
+PURPOSE: To conduct "sanity checks" on our survival analysis to ensure our results are accurate.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We found that in our survival analysis there were quite a few "censored" patients. We want to check that that is how it should be so we are going to see if we swapped the labels of "alive" and "deceased" in data used for survival analysis by accident.
+
+To start I am going to see if the number of "alive" and "deceased" patients correspond to the numbers of patients in the "Prognosis" column of the clinical metadata. 
+
+```{r read in data}
+HCC_metadata <- as.data.frame(read.csv("~/Desktop/ResearchProjects/LiverCancer/Metadata/ICGC_japan_HCC_WGS_samples_info.csv"))
+Clinical_metadata <- as.data.frame(read.csv("~/Desktop/ResearchProjects/LiverCancer/Metadata/Full_RIKEN_clinical_data.csv"))
+
+Clinical_metadata$ID <- gsub("_.*", "", Clinical_metadata$ID)
+```
+
+I am also checking how many NA values just in case.
+```{r}
+#counting number of NA values
+na_count <- sum(is.na(HCC_metadata$donor_vital_status))
+cat("Number of NA values in the 'donor_vital_status' column:", na_count, "\n")
+
+#counting number of "alive" patients
+alive<- nrow(HCC_metadata[HCC_metadata$donor_vital_status=="alive",])
+cat("There are", alive, "alive patients \n")
+
+#counting number of "deceased" patients
+deceased<- nrow(HCC_metadata[HCC_metadata$donor_vital_status=="deceased",])
+cat("There are", deceased, "deceased patients\n")
+```
+
+To make sure I am comparing the same dataset I am going to check that the sample ids column match and then check if there are NA values in the Prognosis column 
+
+```{r}
+#are we comparing the same samples? Should print TRUE if we are comparing the same samples will print FALSE if we are not
+result <- identical(Clinical_metadata$ID, HCC_metadata$submitted_donor_id)
+print(result)
+
+#subsetting the Clinical metadata so that we are comparing the same values
+Clinical_metadata_subset<- Clinical_metadata[Clinical_metadata$ID %in% HCC_metadata$submitted_donor_id,]
+Clinical_metadata_subset <- Clinical_metadata[match(HCC_metadata$submitted_donor_id, Clinical_metadata$ID),]
+
+#checking that the match function worked 
+result <- identical(HCC_metadata$submitted_donor_id, Clinical_metadata_subset$ID)
+print(result)
+```
+
+Still showing that they are not identical. Let's see if for some reason there are still values that are not the same
+
+```{r}
+# Find indices where the ID columns are not identical
+indices_not_identical <- which(Clinical_metadata_subset$ID != HCC_metadata$submitted_donor_id)
+
+# Print the result
+print(indices_not_identical) #returns nothing 
+
+indices_not_identical <- which(HCC_metadata$submitted_donor_id != Clinical_metadata_subset$ID)
+
+# Print the result
+print(indices_not_identical) #returns nothing 
+```
+
+Let us see if the columns length or datatypeare not the same somehow
+```{r}
+#checking sample ID column datatype
+str(HCC_metadata$submitted_donor_id)
+str(Clinical_metadata_subset$ID)
+```
+
+They are both the same. Given that I have checked multiple ways in which the columns are different I am going to assume for all intents and purposes that they are the sample columns are the same. 
+
+If the sample columns are the same then we can assume that we are using the clinical data for the same patients that we are doing the survival analysis on. I am now going to see if there are any NA values in the prognosis column of the metadata subset and see how many patients are alive and dead and check if it is the same number of deceased and alive values.
+
+Just as a reminder
+```{r}
+cat("There are", alive, "alive patients \n")
+cat("There are", deceased, "deceased patients\n")
+
+patients<- sum(Prog0,Prog1,Prog2,Prog3)
+cat("There are", patients,"total patients \n")
+```
+```{r}
+#checking how many NA values 
+na_countProg <- sum(is.na(Clinical_metadata_subset$Prognosisf))
+cat("Number of NA values in the 'Prognosis' column:", na_countProg, "\n")
+```
+
+NA values tend to lead mess up analysis moving forward so I am going to change all NA values to zero. So this is making the assumption that no report prognosis means that the patients are alive. 
+```{r}
+Clinical_metadata_subset$Prognosisf[is.na(Clinical_metadata_subset$Prognosisf)] <- 0
+```
+
+
+The Prognosis column contains the values 0,1,2,3. So, I am going to count the number of rows in the clinical metadata with those values. 
+```{r}
+#
+Prog0<- nrow(Clinical_metadata_subset[Clinical_metadata_subset$Prognosisf=="0",])
+cat("Number of 0 values in the 'Prognosis' column:", Prog0, "\n")
+
+Prog1<- nrow(Clinical_metadata_subset[Clinical_metadata_subset$Prognosisf=="1",])
+cat("Number of 1 values in the 'Prognosis' column:", Prog1, "\n")
+
+Prog2<- nrow(Clinical_metadata_subset[Clinical_metadata_subset$Prognosisf=="2",])
+cat("Number of 2 values in the 'Prognosis' column:", Prog2, "\n")
+
+Prog3<- nrow(Clinical_metadata_subset[Clinical_metadata_subset$Prognosisf=="3",])
+cat("Number of 3 values in the 'Prognosis' column:", Prog3, "\n")
+```
+
+Checking that these numbers add up to 260 which is equivalent to the column of "alive" and "deceased" and the length of the column.
+```{r}
+patients<- sum(Prog0,Prog1,Prog2,Prog3)
+print(patients)
+```
+
+So assuming that 0 means alive and 1-3 mean deceased we can conclude that 
+```{r}
+death<- sum(Prog1,Prog2,Prog3)
+cat("There are", Prog0,"alive patients and",death,"dead patients which is equivalent to the number label markings assigned for the survival analysis. \n")
+```

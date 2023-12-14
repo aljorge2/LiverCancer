@@ -93,6 +93,21 @@ boxplot(FemaleAge, main = "Distribution of Female Ages", ylab = "Ages", col = "#
 # Reset the layout to default (1x1) after creating the plots
 par(mfrow = c(1, 1))
 ```
+```{r}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MedicalCovariateAnalysis/AgeBoxPlot.pdf")
+# Create side-by-side boxplots
+par(mfrow = c(1, 2))  # Set up a 1x2 layout for two plots
+
+# Boxplot for MaleAge
+boxplot(MaleAge, main = "Distribution of Male Ages", ylab = "Ages", col = "#FFC20A")
+
+# Boxplot for FemaleAge
+boxplot(FemaleAge, main = "Distribution of Female Ages", ylab = "Ages", col = "#40B0A6")
+
+# Reset the layout to default (1x1) after creating the plots
+par(mfrow = c(1, 1))
+dev.off()
+```
 ## **Tumor Stage CHI-square**
 Since Tumor Stage is a categorical variable a CHI square homogenity of proportions test was conducted using the chisq.test function. A significance level of 0.05 is used
 ```{r counts}
