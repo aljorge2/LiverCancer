@@ -92,38 +92,15 @@ ggplot(Age, aes(x = Gender, y = Age, fill = Gender)) +
        y = "Age") +
   theme_minimal()
 ```
+showing boxplot statistics for male age
 ```{r}
 #getting boxplot statistics for male age
 boxplot.stats(MaleAge)
 ```
 
+Showing boxplot statistics for female age distribution
 ```{r}
 boxplot.stats(FemaleAge)
-```
-
-```{r}
-FemaleAge<- as.data.frame(FemaleAge)
-ggplot(FemaleAge, aes(y=FemaleAge)) +
-  geom_boxplot() +
-  labs(title = "Distribution of Age",
-       x = "Sex",
-       y = "Age") +
-  theme_minimal()
-
-boxplot(FemaleAge)
-```
-
-```{r}
-par(mfrow = c(1, 2))  # Set up a 1x2 layout for two plots
-
-# Boxplot for MaleAge
-boxplot(MaleAge, main = "Distribution of Male Ages", ylab = "Ages", col = "#FFC20A")
-
-# Boxplot for FemaleAge
-boxplot(FemaleAge, main = "Distribution of Female Ages", ylab = "Ages", col = "#40B0A6")
-
-# Reset the layout to default (1x1) after creating the plots
-par(mfrow = c(1, 1))
 ```
 
 ```{r}
@@ -231,11 +208,16 @@ CONCLUSION: There are no patients with metastastized cancer or cancer in their l
 
 ## **CHI square Edmondson Grade**
 Since Edmondson Grade is a categorical variable a CHI square homogenity of proportions test was conducted using the chisq.test function.
+
+```{r}
+na_count_male <- sum(is.na(Male$Edmondson.grade))
+na_count_female <- sum(is.na(Male$Edmondson.grade))
+```
 ```{r edmondson grade}
 
-#replacing NAs with Zeros. Assuming that NA means that the tumor was not graded
-Male[is.na(Male)] <-0
-Female[is.na(Female)] <-0
+#replacing NAs with Fives
+Male[is.na(Male)]
+Female[is.na(Female)] 
 
 #male grade separated by severity 
 MaleEg0<- nrow(Male[Male$Edmondson.grade=="0", ])
@@ -283,6 +265,7 @@ barplot(EdmondsonHist, beside = TRUE, ylim = c(0,70), col = c("#FFC20A", "#40B0A
 ```
 Listed below is the table show the counts of males and females with each Edmondson grade The row names are the levels of Edmondson Grade
 ```{r counts Edmondson grade}
+
 #sums of rows in EdmondsonGrade
 EdmondsonGradeCounts<-c(1,14,8,87,23,16,1)
 
@@ -302,7 +285,10 @@ EdmondsonGrade
 
 Below is a percentage paired bar plot showing the percentage of male and female samples at each Edmondson Grade.
 ```{r percentage graph}
-
+FemaleEg5<- nrow(Male[Male$Edmondson.grade=="5", ])
+print(FemaleEg5)
+FemaleEg5<- nrow(Male[Male$Edmondson.grade=="5", ])
+print(FemaleEg5)
 # Sample data with sex grade and count data
 data <- data.frame(
   Sex = rep(c("Males", "Females"), each = 7),
@@ -368,6 +354,17 @@ boxplot(FemaleSize, main = "Distribution of Female Tumor Size", ylab = "Size in 
 
 # Reset the layout to default (1x1) after creating the plots
 par(mfrow = c(1, 1))
+```
+
+```{r}
+TumorSize <- data.frame(Gender = metadataAnalysis$Gender, TumorSize = metadataAnalysis$Tumor.size..mm.)
+
+ggplot(TumorSize, aes(x = Gender, y = TumorSize, fill = Gender)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  labs(title = "Distribution of Tumor Size in mm",
+       x = "Sex",
+       y = "Millimeters") +
+  theme_minimal()
 ```
 
 ## **Liver Fibrosis CHI-square**

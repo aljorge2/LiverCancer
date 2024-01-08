@@ -35,6 +35,26 @@ Clinical_metadata <- Clinical_metadata[match(HCC_metadata$submitted_donor_id, Cl
 identical(HCC_metadata$submitted_donor_id, Clinical_metadata$ID)
 
 Total_metadata <- cbind(HCC_metadata, Clinical_metadata)
+
+#reading in meta dataset
+metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/MedicalCovariateAnalysis/data/metadataSubset.csv", row.names=1)
+```
+```{r}
+#pulling sample ids
+samples<- as.data.frame(metadataSmall$ID)
+
+# Remove duplicates from the 'sample' column
+samples <- unique(samples)
+colnames(samples)<- c("RK")
+
+#subsetting survival analysis metadata into samples for analysis
+Clinical_metadata <- Clinical_metadata[which(Clinical_metadata$ID %in% samples$RK),]
+HCC_metadata<- HCC_metadata[which(HCC_metadata$submitted_donor_id %in% samples$RK),]
+
+#matching data
+Clinical_metadata <- Clinical_metadata[match(HCC_metadata$submitted_donor_id, Clinical_metadata$ID),]
+identical(HCC_metadata$submitted_donor_id, Clinical_metadata$ID)
+Total_metadata <- cbind(HCC_metadata, Clinical_metadata)
 ```
 
 ## Survival analysis all males vs. females: 
@@ -176,7 +196,22 @@ ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Smo
 ```{r}
 ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~Smoking, data=Total_metadata_female), pval=TRUE)
 ```
+## Survival analysis subset viral etiology 
 
+```{r}
+# Create a new column 'etiology' based on 'Virus.Infection'
+Total_metadata$etiology <- ifelse(Total_metadata$Virus.infection == "HBV", 1, 0)
+Total_metadata_female$etiology <- ifelse(Total_metadata_female$Virus.infection == "HBV", 1, 0)
+Total_metadata_male$etiology <- ifelse(Total_metadata_male$Virus.infection == "HBV", 1, 0)
+
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~etiology, data=Total_metadata), pval=TRUE)
+```
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~etiology, data=Total_metadata_male), pval=TRUE)
+```
+```{r}
+ggsurvplot(survfit(Surv(donor_survival_time, as.numeric(donor_vital_status))~etiology, data=Total_metadata_female), pval=TRUE)
+```
 ## Survival analysis subset males vs. females - Neither: 
 ```{r}
 #Total_metadata_NBNC <- Total_metadata[which(Total_metadata$Virus.infection=="NBNC"),]
