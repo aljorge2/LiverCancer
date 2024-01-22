@@ -1,0 +1,12 @@
+INFO [2024-01-09 15:51:37] [[1]]
+INFO [2024-01-09 15:51:37] List(Female = DEGs_F$gene_name, Male = DEGs_M$gene_name)
+INFO [2024-01-09 15:51:37] 
+INFO [2024-01-09 15:51:37] $filename
+INFO [2024-01-09 15:51:37] NULL
+INFO [2024-01-09 15:51:37] 
+INFO [2024-01-09 15:51:37] [[1]]
+INFO [2024-01-09 15:51:37] List(Female = DEGs_F_relax_p$gene_name, Male = DEGs_M$gene_name)
+INFO [2024-01-09 15:51:37] 
+INFO [2024-01-09 15:51:37] $filename
+INFO [2024-01-09 15:51:37] NULL
+INFO [2024-01-09 15:51:37] 

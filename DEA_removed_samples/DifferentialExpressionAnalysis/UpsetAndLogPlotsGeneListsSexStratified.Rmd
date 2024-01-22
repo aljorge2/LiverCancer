@@ -1,0 +1,242 @@
+---
+title: "Upset and LogFC Plots for GeneLists"
+author: "Annika Jorgensen"
+date: "2024-01-12"
+output: html_document
+---
+
+Title: "Reactome Pathway Results"  
+Author: Annika Jorgensen  
+Date: 12/07/2022 
+Purpose: The purpose of this file is to generate comparisons and find commonalities and differences between lists of pathways created by doing a Reactome pathway analysis. The comparisons are done for overall tumor tumor adjacent, male and female tumor tumor adjacent, HBV and HCV tumor tumor adjacent
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)                                  
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(UpSetR)
+library(formatR)
+library(tinytex)
+```
+
+```{r}
+getwd()
+```
+```{r}
+#importing differentially expressed gene lists LogFC 2 and p.value 0.05
+FemaleGeneList <- read.csv("FemaleTumorTumorAdjacent/Figures/GeneLists/Female_DEGs.csv")
+MaleGeneList <- read.csv("MaleTumorTumorAdjacent/Figures/GeneLists/Male_all_DEGs.csv")
+OverallGeneList <- read.csv("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/TumorTumorAdjacent/Figures/GeneLists/gene_list_tumor_vs_tumor_adjacent.csv")
+
+#importing unfiltered gene lists
+FemaleUnfilteredGeneList <- read.csv("FemaleTumorTumorAdjacent/Figures/GeneLists/unfiltered_DEGs_F.csv")
+MaleUnfilteredGeneList <- read.csv("FemaleTumorTumorAdjacent/Figures/GeneLists/unfiltered_DEGs_M.csv")
+OverallUnfilteredGeneList <- read.csv("TumorTumorAdjacent/Figures/GeneLists/unfiltered_gene_list_tumor_vs_tumor_adjacent.csv")
+```
+
+```{r}
+
+#creating upset plot of all differentially expressed genes 
+input <- list(OverallGeneList$DEGs.gene_name, MaleGeneList$gene_name, FemaleGeneList$gene_name)
+
+names(input) <- c("all", "male", "female")
+
+upset(fromList(input), order.by= "freq", nsets=3)
+```
+
+```{r}
+#saving upset plot to PDF
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/upsetplot_sex_stratified.pdf", width = 14, height = 14)
+ upset(fromList(input), order.by= "freq", nsets=3, line.size=1.5, text.scale= c(5,5,4.5,2.0,5,5))
+ dev.off()
+```
+
+```{r}
+
+#matching the male gene list to the female gene list 
+FemaleUnfilteredGeneList <- FemaleUnfilteredGeneList[match(MaleUnfilteredGeneList$gene_name, FemaleUnfilteredGeneList$gene_name), ]
+
+#checking if they are identical
+identical(FemaleUnfilteredGeneList$gene_name, MaleUnfilteredGeneList$gene_name)
+
+#plotting logFC should see linear trend
+plot(MaleUnfilteredGeneList$logFC, FemaleUnfilteredGeneList$logFC)
+
+# Calculate and display the regression line
+regression <- lm(MaleUnfilteredGeneList$logFC~FemaleUnfilteredGeneList$logFC)
+abline(regression)
+```
+```{r}
+#Show regression formula 
+print(regression)
+```
+```{r}
+#creating data frame for logFC plot.
+sample_data <- data.frame(MaleUnfilteredGeneList$logFC, MaleUnfilteredGeneList$gene_name, MaleUnfilteredGeneList$adj.P.Val, FemaleUnfilteredGeneList$logFC, FemaleUnfilteredGeneList$gene_name, FemaleUnfilteredGeneList$adj.P.Val)
+
+#Calculate residuals
+sample_data$residuals <- residuals(regression)
+sample_data
+```
+```{r}
+#Threshold of 0.5
+outlier_threshold <- 0.5
+
+#Print only name of outliers
+outlier <- sample_data[which(abs(sample_data$residuals) > 0.5), ]
+is.numeric(sample_data$residuals)
+
+outlier
+```
+
+```{r}
+#creating data frame for data in ggplot and renaming columns for ggplot 
+df <- sample_data
+colnames(df) <- c("M_logFC", "M_name", "M_adj.P.Val", "F_logFC", "F_name", "F_adj.P.Val","residuals")
+
+#getting coefficients from regression function to create line for ggplot
+regression <- lm(df$F_logFC~df$M_logFC)
+regression
+coeff<-coefficients(regression)
+coeff
+intercept<-coeff[1]
+slope<-coeff[2]
+```
+
+```{r}
+#plotting with regression line
+ggp<- ggplot(df, mapping=aes(x=M_logFC, y= F_logFC)) + geom_point(alpha=0.5)+theme_bw()
+ggp2 <- ggp+geom_abline(intercept=intercept, slope=slope, size=1.5)
+
+
+#plotting with color scheme. If residuals is >2.25, then the point will be colored red. 
+
+ggp3<- ggp2 +geom_point(aes(color=abs(residuals)>2.25), size=4)+theme(legend.position="none")+scale_color_manual(values = c("black","maroon"))
+
+#plotting with gene label if the residual is >2.75, then the point will be labeled with the gene name. 
+#ggp4 <- ggp3 +geom_label_repel(data=forLabel,aes(x = M_logFC, y = F_logFC, label=M_name), size=10, min.segment.length = 0, segment.color="black")
+
+ggp5<- ggp3+theme(legend.position = "none", axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(35)), legend.text = element_text(family= "Helvetica", size=(35))) + labs(x= "Male log(FC)", y="Female log(FC)")
+
+ggp5
+```
+
+```{r}
+
+Malegenes <- df[which(df$M_adj.P.Val < 0.05 & df$F_adj.P.Val >= 0.05),]
+print(dim(Malegenes))
+Femalgenes <-df[which(df$M_adj.P.Val >= 0.05 & df$F_adj.P.Val < 0.05),]
+Bothgenes<- df[which(df$M_adj.P.Val < 0.05 & df$F_adj.P.Val < 0.05),]
+None <- df[which(df$M_adj.P.Val <= 0.05 & df$F_adj.P.Val <= 0.05),]
+```
+```{r}
+#plotting effect size 
+ggp<- ggplot(df, mapping=aes(x=M_logFC, y= F_logFC))
+
+#adding horizontal and vertical line 
+ggp2 <- ggp + geom_abline(intercept=0, slope=0, size=1.5) + # horizontal line 
+                 geom_vline(xintercept = 0, size = 1.5) # vertical line 
+
+#adding coloring based on significance
+ggp3<- ggp2 + geom_point(alpha = 1.5, aes(color = ifelse(M_adj.P.Val < 0.05 & F_adj.P.Val >= 0.05, "blue", # significant in males
+                              ifelse(M_adj.P.Val >= 0.05 & F_adj.P.Val < 0.05, "maroon", # significant in females
+                                     ifelse(M_adj.P.Val < 0.05 & F_adj.P.Val < 0.05, "orange", #significant in both
+                                     "black"))))) +
+  scale_color_manual(values = c("blue", "maroon","orange", "black"),
+                     labels = c("Male Sig., Female Non-Sig.", "Female Sig., Male Non-Sig.","Both Sig", "Both Non-Sig."))
+
+# adding axes labels and legend title 
+ggp4 <- ggp3 + labs(color = "Legend") +  # Set legend title using labs()
+  theme_bw()
+
+ggp5<- ggp4+theme(axis.title = element_text(family= "Helvetica", size=(35)), axis.text = element_text(family = "Helvetica", size=(35), color="black"), legend.title = element_text(family = "Helvetica", size=(25)), legend.text = element_text(family= "Helvetica", size=(25))) + labs(x= "Male log(FC)", y="Female log(FC)")
+
+ggp5
+```
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleColoredBySignificance.pdf", width=12, height=12)
+ggp5
+dev.off()
+```
+
+```{r}
+#plotting effect size 
+ggp<- ggplot(df, mapping=aes(x=M_logFC, y= F_logFC))
+
+#adding horizontal and vertical line 
+ggp2 <- ggp + geom_abline(intercept=0, slope=0, size=1.5) + # horizontal line 
+                 geom_vline(xintercept = 0, size = 1.5) # vertical line 
+
+#coloring based differences in direction 
+ggp3<- ggp2 + geom_point(alpha = 1.5, aes(color = ifelse(M_logFC > 0 & F_logFC <= 0, "blue", # male logFC >0
+                                                         ifelse(F_logFC > 0 & M_logFC < 0, "maroon", # female logFC > 0
+                                                                ifelse(M_logFC >0 & F_logFC >0, "orange", # both sexes logFC >0
+                                                                       "black"))))) +  #neither sex logFC >0
+  scale_color_manual(values = c("blue", "maroon","orange","black"),  labels = c("M logFC > 0, F logFC <= 0", "F logFC > 0, M logFC <= 0", "M & F logFC > 0", "M & F logFC <= 0"))
+ggp4 <- ggp3 + labs(color = "Legend") +  # Set legend title using labs()
+  theme_bw()
+ggp4
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleColoredbyDirectionNotFilter.pdf", width=12, height=12)
+ggp4
+dev.off()
+```
+Check for the number of genes on upset plot coorelate with log FC 
+
+```{r}
+#creating same graph as above but including a p value threshold
+
+#limiting the genes in the dataset to be significant with a p value of 0.05 
+df2<-df[which(df$M_adj.P.Val<0.05 | df$F_adj.P.Val <0.05), ]
+
+#plotting effect size 
+ggp<- ggplot(df2, mapping=aes(x=M_logFC, y= F_logFC))
+
+#adding horizontal and vertical line 
+ggp2 <- ggp + geom_abline(intercept=0, slope=0, size=1.5) + # horizontal line 
+                 geom_vline(xintercept = 0, size = 1.5) # vertical line 
+
+#coloring based differences in direction 
+ggp3<- ggp2 + geom_point(alpha = 1.5, aes(color = ifelse(M_logFC > 0 & F_logFC <= 0, "blue", # male logFC >0
+                                                         ifelse(F_logFC > 0 & M_logFC < 0, "maroon", # female logFC > 0
+                                                                ifelse(M_logFC >0 & F_logFC >0, "orange", # both sexes logFC >0
+                                                                       "black"))))) +  #neither sex logFC >0
+  scale_color_manual(values = c("blue", "maroon","orange","black"),  labels = c("M logFC > 0, F logFC <= 0", "F logFC > 0, M logFC <= 0", "M & F logFC > 0", "M & F logFC <= 0"))
+ggp4 <- ggp3 + labs(color = "Legend") +  # Set legend title using labs()
+  theme_bw()
+ggp4
+```
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleColoredByDirectionPvalueFilter.pdf", width=12, height=12)
+ggp4
+dev.off()
+```

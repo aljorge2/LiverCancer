@@ -1,0 +1,493 @@
+---
+title: "LogvFoldvChangevPlots"
+author: "Annika Jorgensen"
+date: "2024-01-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r Libraries, include= FALSE}
+#==================================
+# Markdown Libraries 
+#==================================
+
+#==================================
+# DEG Analysis Libraries 
+#==================================
+
+library(RColorBrewer)
+library(matrixStats)
+library(ggplot2)
+library(edgeR)
+library(DESeq2)
+library(limma)
+library(doParallel)
+library(variancePartition)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(GOSemSim)
+library(biomaRt)
+library(UpSetR)
+library(VennDiagram)
+library(ggrepel)                                  
+library(dplyr)
+library(stringr)
+library(forcats)
+library(stats)
+library(UpSetR)
+library(formatR)
+library(tinytex)
+```
+
+##**Plotting Original LogFC Plot**
+Importing the unfiltered gene lists. 
+```{r}
+#importing unfiltered gene lists
+FemaleUnfilteredGeneList <- read.csv("FemaleTumorTumorAdjacent/Figures/GeneLists/unfiltered_DEGs_F.csv")
+MaleUnfilteredGeneList <- read.csv("FemaleTumorTumorAdjacent/Figures/GeneLists/unfiltered_DEGs_M.csv")
+OverallUnfilteredGeneList <- read.csv("TumorTumorAdjacent/Figures/GeneLists/unfiltered_gene_list_tumor_vs_tumor_adjacent.csv")
+```
+
+Matching gene lists to ensure all genes plotted are consistent across males and females.
+```{r}
+#matching the male gene list to the female gene list 
+FemaleUnfilteredGeneList <- FemaleUnfilteredGeneList[match(MaleUnfilteredGeneList$gene_name, FemaleUnfilteredGeneList$gene_name), ]
+
+#checking if they are identical
+identical(FemaleUnfilteredGeneList$gene_name, MaleUnfilteredGeneList$gene_name)
+```
+
+```{r}
+#plotting logFC should see linear trend
+plot(MaleUnfilteredGeneList$logFC, FemaleUnfilteredGeneList$logFC)
+
+# Calculate and display the regression line
+regression <- lm(MaleUnfilteredGeneList$logFC~FemaleUnfilteredGeneList$logFC)
+abline(regression)
+```
+
+##**Plotting LogFC Male and Female Colored by Significance**
+
+```{r}
+#creating regression line
+regression <- lm(MaleUnfilteredGeneList$logFC~FemaleUnfilteredGeneList$logFC)
+
+#creating data frame for logFC plot.
+df <- data.frame(MaleUnfilteredGeneList$logFC, MaleUnfilteredGeneList$gene_name, MaleUnfilteredGeneList$adj.P.Val, FemaleUnfilteredGeneList$logFC, FemaleUnfilteredGeneList$gene_name, FemaleUnfilteredGeneList$adj.P.Val)
+
+#Placing residuals into data frame for logFC plot
+df$residuals <- residuals(regression)
+
+#naming columns 
+colnames(df) <- c("M_logFC", "M_name", "M_adj.P.Val", "F_logFC", "F_name", "F_adj.P.Val","residuals")
+```
+
+```{r}
+#plotting logFC and coloring by significance 
+plot(df$M_logFC, df$F_logFC, 
+     col=ifelse(df$M_adj.P.Val>=0.05 & df$F_adj.P.Val>=0.05, "black", #not sig
+                ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val>0.05,"blue", #sig male not sig female
+                       ifelse(df$M_adj.P.Val>0.05 & df$F_adj.P.Val<0.05, "maroon", #sig female not sig male
+                              ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val<0.05, "goldenrod" , "green"))))) # gold = sig both 
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Not significant", "Signficiant males only", "Significant Females only", "Signfiicant Males and Females"))
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleColoredBySignificanceV3.pdf", width=12, height=12)
+#plotting logFC and coloring by significance 
+plot(df$M_logFC, df$F_logFC, 
+     col=ifelse(df$M_adj.P.Val>=0.05 & df$F_adj.P.Val>=0.05, "black", #not sig
+                ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val>0.05,"blue", #sig male not sig female
+                       ifelse(df$M_adj.P.Val>0.05 & df$F_adj.P.Val<0.05, "maroon", #sig female not sig male
+                              ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val<0.05, "goldenrod" , "green"))))) # gold = sig both 
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Not significant", "Signficiant males only", "Significant Females only", "Signfiicant Males and Females"))
+dev.off()
+```
+
+**Coloring by Restricted Significance**
+
+```{r}
+# restricting data to only significant genes 
+df<-df[which(df$M_adj.P.Val<0.05 | df$F_adj.P.Val < 0.05), ]
+```
+
+```{r}
+
+plot(df$M_logFC, df$F_logFC, 
+     col=ifelse(df$M_adj.P.Val>=0.05 & df$F_adj.P.Val>=0.05, "black", # not sig (should be nothing)
+                ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val>0.05,"blue", # sig male not female
+                       ifelse(df$M_adj.P.Val>0.05 & df$F_adj.P.Val<0.05, "maroon", # sig female not male
+                              ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val<0.05, "goldenrod", "green")))))  #gold sig both
+
+#adding and vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Not significant", "Signficiant males only", "Significant Females only", "Signficant Males and Females"))
+```
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleColoredByRestrictedSignificanceV3.pdf", width=12, height=12)
+plot(df$M_logFC, df$F_logFC, 
+     col=ifelse(df$M_adj.P.Val>=0.05 & df$F_adj.P.Val>=0.05, "black", # not sig (should be nothing)
+                ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val>0.05,"blue", # sig male not female
+                       ifelse(df$M_adj.P.Val>0.05 & df$F_adj.P.Val<0.05, "maroon", # sig female not male
+                              ifelse(df$M_adj.P.Val<0.05 & df$F_adj.P.Val<0.05, "goldenrod", "green"))))) #gold sig both
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Not significant", "Signficiant males only", "Significant Females only", "Signficant Males and Females"))
+dev.off()
+```
+
+##**Plotting LogFC Male and Female Colored by LogFC values**
+```{r}
+#creating data frame for logFC plot.
+df <- data.frame(MaleUnfilteredGeneList$logFC, MaleUnfilteredGeneList$gene_name, MaleUnfilteredGeneList$adj.P.Val, FemaleUnfilteredGeneList$logFC, FemaleUnfilteredGeneList$gene_name, FemaleUnfilteredGeneList$adj.P.Val)
+
+#Placing residuals into data frame for logFC plot
+df$residuals <- residuals(regression)
+
+#naming columns 
+colnames(df) <- c("M_logFC", "M_name", "M_adj.P.Val", "F_logFC", "F_name", "F_adj.P.Val","residuals")
+```
+```{r}
+plot(df$M_logFC, df$F_logFC, 
+     col = ifelse(df$M_logFC <= 0 & df$F_logFC <= 0,"black", #both logFC < 0
+                                    ifelse(df$M_logFC > 0 & df$F_logFC < 0, "blue", #males logFC >0 females logFC < 0
+                                      ifelse(df$M_logFC < 0 & df$F_logFC > 0, "maroon", #females logFC > 0 males logFC < 0
+                                           ifelse(df$M_logFC > 0 & df$F_logFC > 0, "goldenrod", "green")))))# golden both logFC > 0
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+     
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Male & Females logFC <= 0", "Males logFC > 0 only", "Females logFC > 0 only", "Males & Females logFC < 0"))
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleLogFCValueV3.pdf", width=12, height=12)
+plot(df$M_logFC, df$F_logFC, 
+     col = ifelse(df$M_logFC <= 0 & df$F_logFC <= 0,"black", #both logFC < 0
+                                    ifelse(df$M_logFC > 0 & df$F_logFC < 0, "blue", #males logFC >0 females logFC < 0
+                                      ifelse(df$M_logFC < 0 & df$F_logFC > 0, "maroon", #females logFC > 0 males logFC < 0
+                                           ifelse(df$M_logFC > 0 & df$F_logFC > 0, "goldenrod", "green")))))# golden both logFC > 0
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+     
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Male & Females logFC <= 0", "Males logFC > 0 only", "Females logFC > 0 only", "Males & Females logFC < 0"))
+dev.off()
+```
+
+```{r}
+# restricting data to only significant genes 
+df<-df[which(df$M_adj.P.Val<0.05 | df$F_adj.P.Val < 0.05), ]
+```
+
+```{r}
+plot(df$M_logFC, df$F_logFC, 
+     col = ifelse(df$M_logFC <= 0 & df$F_logFC <= 0,"black", #both logFC < 0
+                                    ifelse(df$M_logFC > 0 & df$F_logFC < 0, "blue", #males logFC >0 females logFC < 0
+                                      ifelse(df$M_logFC < 0 & df$F_logFC > 0, "maroon", #females logFC > 0 males logFC < 0
+                                           ifelse(df$M_logFC > 0 & df$F_logFC > 0, "goldenrod", "green")))))# golden both logFC > 0
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+     
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Male & Females logFC <= 0", "Males logFC > 0 only", "Females logFC > 0 only", "Males & Females logFC < 0"))
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleFemaleRestrictedLogFCValueV3.pdf", width=12, height=12)
+plot(df$M_logFC, df$F_logFC, 
+     col = ifelse(df$M_logFC <= 0 & df$F_logFC <= 0,"black", #both logFC < 0
+                                    ifelse(df$M_logFC > 0 & df$F_logFC < 0, "blue", #males logFC >0 females logFC < 0
+                                      ifelse(df$M_logFC < 0 & df$F_logFC > 0, "maroon", #females logFC > 0 males logFC < 0
+                                           ifelse(df$M_logFC > 0 & df$F_logFC > 0, "goldenrod", "green")))))# golden both logFC > 0
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+     
+legend("topleft", pch=c(1), 
+       col=c("black", "blue", "maroon", "goldenrod"),
+       legend=c("Male & Females logFC <= 0", "Males logFC > 0 only", "Females logFC > 0 only", "Males & Females logFC < 0"))
+dev.off()
+```
+
+## **LogFC Plot Genes Unique to Males**
+
+Importing filtered gene lists
+```{r}
+#importing differentially expressed gene lists LogFC > 2 and p.value < 0.05
+FemaleGeneList <- read.csv("FemaleTumorTumorAdjacent/Figures/GeneLists/Female_DEGs.csv")
+MaleGeneList <- read.csv("MaleTumorTumorAdjacent/Figures/GeneLists/Male_all_DEGs.csv")
+OverallGeneList <- read.csv("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/TumorTumorAdjacent/Figures/GeneLists/gene_list_tumor_vs_tumor_adjacent.csv")
+```
+
+Getting gene names unique to males
+```{r}
+# Extract rows where genes are in male list but not female and overall list 
+filtered_rows <- which(!(MaleGeneList$gene_name %in% FemaleGeneList$gene_name | MaleGeneList$gene_name %in% OverallGeneList$DEGs.gene_name))
+
+# Extract the p value and logFC based on  of the filtered rows
+extracted_values <- MaleGeneList$gene_name[filtered_rows]
+
+# Print the extracted values
+print(extracted_values)
+```
+Retrieving logFC and p values for genes unique to male 
+```{r}
+#getting male logFC and p values from genes 
+MaleUniqueGenes <- MaleUnfilteredGeneList[which(MaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+# getting female logFC and p values from genes 
+FemaleValuesMaleUniqueGenes <- FemaleUnfilteredGeneList[which(FemaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#checking if they are identical
+identical(MaleUniqueGenes$gene_name, FemaleValuesMaleUniqueGenes$gene_name)
+```
+
+Graphing logFC plot 
+```{r}
+#plotting logFC males and females
+plot(MaleUniqueGenes$logFC, FemaleValuesMaleUniqueGenes$logFC)
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleUniqueGenesV3.pdf", width=12, height=12)
+#plotting logFC males and females
+plot(MaleUniqueGenes$logFC, FemaleValuesMaleUniqueGenes$logFC)
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```
+
+## **LogFC Plot Genes Unique to Females**
+
+getting genes unique to female
+```{r}
+# Extract rows where is in female gene list but not male and overall
+filtered_rows <- which(!(FemaleGeneList$gene_name %in% MaleGeneList$gene_name | FemaleGeneList$gene_name %in% OverallGeneList$DEGs.gene_name))
+
+# Extract the information based on filtered row
+extracted_values <- FemaleGeneList$gene_name[filtered_rows]
+
+# Print the extracted values
+print(extracted_values)
+```
+Getting logFC and p values for genes unique to females 
+```{r}
+#getting female logFC and p values from genes 
+FemaleUniqueGenes <- FemaleUnfilteredGeneList[which(FemaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+# getting male logFC and p values from genes 
+MaleValuesFemaleUniqueGenes <- MaleUnfilteredGeneList[which(MaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#checking if they are identical
+identical(FemaleUniqueGenes$gene_name, MaleValuesFemaleUniqueGenes$gene_name)
+```
+
+Graphing logFC plot
+```{r}
+#plotting logFC males and females
+plot(MaleValuesFemaleUniqueGenes$logFC, FemaleUniqueGenes$logFC)
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+```
+```{r}
+pdf("LogFCPlotGeneLists/logFcFemaleUniqueGenesV3.pdf", width=12, height=12)
+#plotting logFC males and females
+plot(MaleValuesFemaleUniqueGenes$logFC, FemaleUniqueGenes$logFC)
+
+#adding vertical and horizontal lines 
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```
+
+*LogFC Plot Genes Shared between Females and Overall Tumor Tumor-Adjacent*
+
+Getting names of genes shared between females and overall tumor tumor-adjacent
+```{r}
+# Extract rows where genes are shared between females and overall but not in males
+filtered_rows <- which(!(FemaleGeneList$gene_name %in% MaleGeneList$gene_name) & FemaleGeneList$gene_name %in% OverallGeneList$DEGs.gene_name)
+
+# Extract the values from the Females column of the filtered rows
+extracted_values <- FemaleGeneList$gene_name[filtered_rows]
+
+# Print the extracted values
+print(extracted_values)
+```
+
+Getting logFC and p values for genes shared between females and overall tumor tumor-adjacent
+```{r}
+#getting female logFC and p values from genes 
+FemaleSharedGenes <- FemaleUnfilteredGeneList[which(FemaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#getting male logFC and p values from genes
+MaleValuesFemaleSharedGenes <- MaleUnfilteredGeneList[which(MaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#checking if gene names are identical 
+identical(FemaleSharedGenes$gene_name, MaleValuesFemaleSharedGenes$gene_name)
+```
+
+graphing logFC plot
+```{r}
+plot(MaleValuesFemaleSharedGenes$logFC, FemaleSharedGenes$logFC)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcFemaleOverallSharedGenes.pdf", width=12, height=12)
+plot(MaleValuesFemaleSharedGenes$logFC, FemaleSharedGenes$logFC)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```
+
+**LogFC Plot Genes Shared between Overall Tumor Tumor-Adjacent and Males**
+
+Getting genes shared between males and overall tumor tumor-adjacent 
+```{r}
+# Extract rows where are shared between males and overall but not in females 
+filtered_rows <- which(!(MaleGeneList$gene_name %in% FemaleGeneList$gene_name) & MaleGeneList$gene_name %in% OverallGeneList$DEGs.gene_name)
+
+# Extract the logFC and p values based on filtered rows
+extracted_values <- MaleGeneList$gene_name[filtered_rows]
+
+# Print the extracted values
+print(extracted_values)
+```
+
+Getting logFC and p values for genes shared between males and overall tumor tumor-adjacent
+```{r}
+#getting maale logFC and p values from genes 
+MaleSharedGenes <- MaleUnfilteredGeneList[which(MaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#getting female logFC and p values from genes
+FemaleValuesMaleSharedGenes <- FemaleUnfilteredGeneList[which(FemaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#checking gene names match
+identical(MaleSharedGenes$gene_name, FemaleValuesMaleSharedGenes$gene_name)
+
+```
+
+```{r}
+plot(MaleSharedGenes$logFC, FemaleValuesMaleSharedGenes$logFC)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+```
+```{r}
+pdf("LogFCPlotGeneLists/logFcMaleOverallSharedGenesV3.pdf", width=12, height=12)
+plot(MaleSharedGenes$logFC, FemaleValuesMaleSharedGenes$logFC)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```
+
+##*Genes Shared by all three comparisons*
+```{r}
+filtered_rows <- which(MaleGeneList$gene_name %in% FemaleGeneList$gene_name & MaleGeneList$gene_name %in% OverallGeneList$DEGs.gene_name)
+
+# Extract the logFC and p values based on filtered rows
+extracted_values <- MaleGeneList$gene_name[filtered_rows]
+
+# Print the extracted values
+#print(extracted_values)
+
+filtered_rows2 <- which(FemaleGeneList$gene_name %in% MaleGeneList$gene_name & FemaleGeneList$gene_name %in% OverallGeneList$DEGs.gene_name)
+
+# Extract the logFC and p values based on filtered rows
+extracted_values2 <- FemaleGeneList$gene_name[filtered_rows2]
+
+# Print the extracted values
+#print(extracted_values2)
+
+extracted_values <- extracted_values[order(extracted_values)]
+
+extracted_values2 <- extracted_values2[order(extracted_values2)]
+
+identical(extracted_values, extracted_values2)
+
+filtered_rows3 <- which(OverallGeneList$DEGs.gene_name %in% MaleGeneList$gene_name & OverallGeneList$DEGs.gene_name %in% FemaleGeneList$gene_name)
+
+extracted_values3 <- OverallGeneList$DEGs.gene_name[filtered_rows3]
+
+# Print the extracted values
+#print(extracted_values3)
+
+extracted_values3 <- extracted_values3[order(extracted_values3)]
+
+identical(extracted_values, extracted_values3)
+```
+
+The genes shared by all three comparisons are equivalent regardless of which gene list you are drawing from. I will be proceeding with only one "extracted value" variable going forward for simplicity. 
+
+```{r}
+#getting maale logFC and p values from genes 
+MaleOverallSharedGenes <- MaleUnfilteredGeneList[which(MaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#getting female logFC and p values from genes
+FemaleOverallSharedGenes <- FemaleUnfilteredGeneList[which(FemaleUnfilteredGeneList$gene_name %in% extracted_values), ]
+
+#checking gene names match
+identical(MaleOverallSharedGenes$gene_name, FemaleOverallSharedGenes$gene_name)
+```
+
+```{r}
+plot(MaleOverallSharedGenes$logFC, FemaleOverallSharedGenes$logFC)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+```
+
+```{r}
+pdf("LogFCPlotGeneLists/logFcSharedByAllGenesV3.pdf", width=12, height=12)
+plot(MaleOverallSharedGenes$logFC, FemaleOverallSharedGenes$logFC)
+
+abline(v = 0, col = "black", lty = 2)
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```

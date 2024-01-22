@@ -323,7 +323,7 @@ This code chunk is setting up a second design matrix for a voom analysis of tumo
 #Added library type and Targets to the design matrix 
 #design <- model.matrix(~0+dge$samples$gender_tissue_viral)
 
-design <- model.matrix(~0+v$targets$gender_tissue)
+design <- model.matrix(~0+v$targets$gender_tissue+v$targets$library_type)
 
 identical(design,design,num.eq=TRUE)
 
@@ -494,7 +494,7 @@ p
 
 forLabel <- subset(dfPlot, adj.P.Val<=0.05 & abs(logFC)>=2)
 # Adding lines for significance thresholds
-pdf("~/Desktop/ResearchProject/LiverCancer/Figures/VolcanoPlots/Volcano_plot_male_DEGs_1.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/VolcanoPlots/Volcano_plot_male_DEGs_1.pdf", width=12, height=12)
 p + geom_hline(yintercept = 2, colour="#000000", linetype="dashed"
 ) + geom_vline(xintercept = 2, colour="#000000", linetype="dashed"
 ) + geom_vline(xintercept = -2, colour="#000000", linetype="dashed"
@@ -517,7 +517,7 @@ p4<- p3+theme(axis.title = element_text(size=35), axis.text = element_text(size=
 
 p4
 
-pdf("~/Desktop/Research Projects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent//Figures/VolcanoPlots/Volcano_plot_male_DEGs_2.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent//Figures/VolcanoPlots/Volcano_plot_male_DEGs_2.pdf", width=12, height=12)
 p4
 dev.off()
 ```
@@ -537,18 +537,18 @@ library(grDevices)
 #write.csv(DEGs_M, "~/3.0 Hasting Research/Liver Cancer Analysis/DEG Figures/Male_all_DEGs.csv")
 
 write.csv(DEGs_F, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/GeneLists/Female_DEGs.csv")
-write.csv(DEGs_M, "~/Desktop/Research Projects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/GeneLists/Male_all_DEGs.csv")
+write.csv(DEGs_M, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/GeneLists/Male_all_DEGs.csv")
 
 venn1<- venn.diagram(List("Female"=DEGs_F$gene_name, "Male"=DEGs_M$gene_name),filename = NULL)
 grid.newpage()
 
 grid.draw(venn1)
-pdf(file="~/Desktop/Research Projects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/VennDiagrams/venn1.pdf")
+pdf(file="~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/VennDiagrams/venn1.pdf")
 
 venn2<-venn.diagram(List("Female"=DEGs_F_relax_p$gene_name, "Male"=DEGs_M$gene_name),  filename = NULL)
 grid.newpage()
 grid.draw(venn2)
-pdf(file="~/Desktop/Research Projects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/VennDiagrams/venn2.pdf")
+pdf(file="~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/VennDiagrams/venn2.pdf")
 dev.off()
 ```
 
@@ -591,10 +591,10 @@ degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
 geneList <- degResult_biomart$entrezgene_id
 geneList_quant <- degResult_biomart$logFC
 ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
-pdf("~/Desktop/Research Projects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/Gokeggplots/Goplot_all_male.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/Gokeggplots/Goplot_all_male.pdf", width=12, height=12)
 goplot(ego)
 #dev.off()
-pdf("~/Desktop/Research Projects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/Gokeggplots/dotplot_all_male.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/MaleTumorTumorAdjacent/Figures/Gokeggplots/dotplot_all_male.pdf", width=12, height=12)
 dotplot(ego, showCategory=30)
 #dev.off()
 ```

@@ -25,8 +25,6 @@ library(stringr)
 library(forcats)
 library(stats)
 library(gridExtra)
-
-setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/MDSplots')
 ```
 
 **Defining Colors** 
@@ -175,6 +173,7 @@ dge <- calcNormFactors(dge, method="TMM")
 dim(dge$genes)
 ```
 
+The only covariate included is the
 ```{r Voom}
 # ===================================== ======================
 # ===========================================================
@@ -184,12 +183,9 @@ dim(dge$genes)
 
 # Creating a new design model matrix with the variable of interest and the
 # library type
-design <- model.matrix(~0+dge$samples$tumor+dge$samples$library_type+dge$samples$Ta)
+design <- model.matrix(~0 + dge$sample$tumor + dge$samples$library_type)
 colnames(design) <- gsub("dge\\$samples\\$tumor", "tumor", colnames(design))
 colnames(design) <- gsub("dge\\$samples\\$library_typeunstranded", "library_type", colnames(design))
-colnames(design) <- gsub("dge\\$samples\\$Ta2", "Ta2", colnames(design))
-colnames(design) <- gsub("dge\\$samples\\$Ta3", "Ta3", colnames(design))
-colnames(design) <- gsub("dge\\$samples\\$Ta4", "Ta4", colnames(design))
 head(design)
 
 # Running voom again with the new design matrix.
@@ -204,21 +200,65 @@ This creates outputs an MDS Plot that we've previously see showing the dissimila
 vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
 ```
 
-```{r TUmor sample MDS plot}
+```{r}
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/LibraryTypeStratifiedMDSPlot.pdf")
+mds <- plotMDS(v, top = 25, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15, 3)),
+               col=ifelse(v$targets$library_type=="stranded", "#1A85FF", 
+                          ifelse(v$targets$library_type=="unstranded", "#D41159", "black")),
+               gene.selection = "common")
+legend("top", pch=c(15), 
+       col=c("#D41159", "#1A85FF") ,
+       legend=c("Unstranded", "Stranded"))
+legend("center", pch=c(17, 15),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
 
-#creating data frame that lists the sample names, sex, lesion type, and stage 
-df <-data.frame(sample= v[["targets"]][["ID"]],sex=v[["targets"]][["sex"]], tumor= v[["targets"]][["tumor"]],stage=v[["targets"]][["Ta"]])
+dev.off()
+```
 
-#extracting rownames from expression data and sample ids
-row_names_df1 <- colnames(vCorrectLibtype)
-column_df2 <- df$sample
+Recreating the MDS plot we have seen previously with the removed samples to see if all low quality samples have been removed.
+```{r Library Type Correction}
+# Removing batch effects
+vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
 
-# Create a named vector linking row names with samples ids
-linkage_vector <- setNames(column_df2, row_names_df1)
+#creating MDS plot top 25 genes PC 1 and 2 coloring by lesion type and sex
+pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/MDSplots/removed_samples_MDS_plots_top_25_genes.pdf")
+mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$gender_tissue=="M_1",
+                          "#FFC20A",
+                          ifelse(v$targets$gender_tissue=="M_0",
+                                 "#E66100",
+                                 ifelse(v$targets$gender_tissue=="F_1",
+                                        "#40B0A6", "#006CD1"))),
+               gene.selection = "common")
+legend("center", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+      legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
 
-# Display the linkage vector
-print(linkage_vector)
-
-sample_values_stage_4 <- as.data.frame(df$sample[df$stage == 4])
-names_metadata_stage_4 <- as.data.frame(metadata$sampleid[metadata$Ta == 4])
+mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$gender_tissue=="M_1",
+                          "#FFC20A",
+                         ifelse(v$targets$gender_tissue=="M_0",
+                                "#E66100",
+                                 ifelse(v$targets$gender_tissue=="F_1",
+                                        "#40B0A6", "#006CD1"))),
+               gene.selection = "common")
+legend("center", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+      legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+ #     col=c("black"),
+       legend=c("HBV", "HCV"))
 ```
