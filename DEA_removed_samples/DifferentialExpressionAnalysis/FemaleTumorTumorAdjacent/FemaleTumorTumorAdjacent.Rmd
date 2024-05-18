@@ -2,7 +2,7 @@
 title: "DEG Analysis Male Tumor vs. Tumor Adjacent"
 author: "Annika Jorgensen"
 date: "1-07/2024"
-output: html_document
+output: pdf_document
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -565,9 +565,7 @@ This sections shows the results of the DEG and Go/KEGG analysis
 
 **DEG results**
 
-This code chunk shows the results of our DEG analysis by retrieving specific data from a package called biomart. The combination of the DEG analysis results and the data from biomart is printed into a table.
-
-The label "kegg-enzyme" was not valid so it has been deleted.
+Kept this just in case but it is not being used since we are doing pathway analysis with Reactome
 ```{r Enriched Pathways females v. males}
 # ===================================
 # Enriched pathways males vs. females
@@ -576,47 +574,49 @@ The label "kegg-enzyme" was not valid so it has been deleted.
 #path <- "~/3.0 Hasting Research/Liver Cancer Analysis/DEGs/DEGs_newcounts_Salmon_batchMD1cov_fpkm05_HBVAdjacent_M_vs_HBVAdjacent_F_fdr1_lfc0.txt"
 
 #Do not have appropriate files using old files for this 
-degResult_genes <- DEGs_M
 
-degResult_genes$hgnc_symbol <- degResult_genes$name
-ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+#degResult_genes <- DEGs_M
+
+#degResult_genes$hgnc_symbol <- degResult_genes$name
+#ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
 
 #biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id', 'kegg_enzyme'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
 
 #Deleted "kegg_enzyme" label beccause it does not work. 
-biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
-colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
+
+#biomart <- getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol', 'entrezgene_id'), filters = 'hgnc_symbol', values = degResult_genes$gene_name, mart = ensembl)
+#colnames(degResult_genes) <- c("chr", "start", "end", "TXNAME", "GENEID", "hgnc_symbol", "length", "logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "B")
 ```
 
 ***GO/KEGG Analysis Female tumor vs. tumor-adjacent***
 
 ```{r DEG result issues part 2}
-degResult <- DEGs_F
-degResult$hgnc_symbol <- degResult$gene_name
-degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
-degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
-geneList <- degResult_biomart$entrezgene_id
-geneList_quant <- degResult_biomart$logFC
-ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/Goplot_all_female.pdf", width=12, height=12)
-goplot(ego)
+#degResult <- DEGs_F
+#degResult$hgnc_symbol <- degResult$gene_name
+#degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+#degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+#geneList <- degResult_biomart$entrezgene_id
+#geneList_quant <- degResult_biomart$logFC
+#ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/Goplot_all_female.pdf", width=12, height=12)
+#goplot(ego)
 #dev.off()
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/dotplot_all_female.pdf", width=12, height=12)
-dotplot(ego, showCategory=30)
+#pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/dotplot_all_female.pdf", width=12, height=12)
+#dotplot(ego, showCategory=30)
 #dev.off()
 ```
 
 ```{r}
-degResult <- DEGs_F_relax_p
-degResult$hgnc_symbol <- degResult$gene_name
-degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
-degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
-geneList <- degResult_biomart$entrezgene_id
-geneList_quant <- degResult_biomart$logFC
-ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/Goplot_all_female_relaxed.pdf", width=12, height=12)
-goplot(ego)
+#degResult <- DEGs_F_relax_p
+#degResult$hgnc_symbol <- degResult$gene_name
+#degResult_biomart <- merge(degResult, biomart, by="hgnc_symbol")
+#degResult_biomart <- degResult_biomart[complete.cases(degResult_biomart), ]
+#geneList <- degResult_biomart$entrezgene_id
+#geneList_quant <- degResult_biomart$logFC
+#ego <- enrichGO(geneList, OrgDb = "org.Hs.eg.db", ont="BP", readable=TRUE)
+#pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/Goplot_all_female_relaxed.pdf", width=12, height=12)
+#goplot(ego)
 #dev.off()
-pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/dotplot_all_female_relaxed.pdf", width=12, height=12)
-dotplot(ego, showCategory=30)
+#pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/FemaleTumorTumorAdjacent/Figures/Gokeggplots/dotplot_all_female_relaxed.pdf", width=12, height=12)
+#dotplot(ego, showCategory=30)
 ```

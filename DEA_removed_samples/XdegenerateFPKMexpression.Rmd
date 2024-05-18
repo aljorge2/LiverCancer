@@ -41,13 +41,13 @@ setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples')
 
 This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
 ```{r Reading_in_data}
-metadata <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
-tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
 colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
 
 # Importing gene annotations
 #genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
-genes <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
 genes <- data.frame(genes)
 tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
 genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]

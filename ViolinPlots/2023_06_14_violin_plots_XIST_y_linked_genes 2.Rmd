@@ -47,7 +47,7 @@ library(forcats)
 library(stats)
 library(gridExtra)
 
-setwd('~/Desktop/Research Projects/Liver Cancer Project')
+setwd('~/Desktop/ResearchProjects/LiverCancer')
 ```
 
 **Defining Colors** 
@@ -71,13 +71,13 @@ femaleAdjacentColor <- sexTissuePalette[5]
 
 This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
 ```{r Reading_in_data}
-metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project//Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
-tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
 colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
 
 # Importing gene annotations
 #genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
-genes <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
 genes <- data.frame(genes)
 tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
 genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
@@ -195,9 +195,9 @@ v <- voomWithQualityWeights(dge, design, plot=TRUE)
 # Removing batch effects
 vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/vCorrectLibtype.csv")
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/vCorrectLibtype.csv")
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/Library Type Correction.pdf")
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDSPlots/Library Type Correction.pdf")
 mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -325,7 +325,7 @@ vCorrectLibtype <- 2 ^ vCorrectLibtype
 vCorrectLibtype <- as.data.frame(vCorrectLibtype)
 DDX3Y_expression <- vCorrectLibtype[grep(pattern="^ENSG00000067048", rownames(vCorrectLibtype)), ]
 
-write.csv(DDX3Y_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/DDX3Y_expression_values_iteration_1.csv" )
+write.csv(DDX3Y_expression,"~/Desktop/ResearchProjects/LiverCancer/Figures/Violinplots/DDX3Y_expression_values_iteration_1.csv" )
 
 DDX3Y_expression <- t(DDX3Y_expression)
 DDX3Y_expression <- as.data.frame(DDX3Y_expression)
@@ -344,7 +344,7 @@ Violin_data <-cbind(gender, DDX3Y_expression)
 Violin_data <- as.data.frame(Violin_data)
 colnames(Violin_data) <- c("Sex", "Expression")
 
-write.csv(DDX3Y_expression,"~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/DDX3Y_expression_values_iteration_2.csv" )
+write.csv(DDX3Y_expression,"~/Desktop/ResearchProjects/LiverCancer/Figures/Violinplots/DDX3Y_expression_values_iteration_2.csv" )
 
 #DDX3Y_expression[DDX3Y_expression < 0] <- 0
 
@@ -382,7 +382,7 @@ DDX3Yp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) +
 
 
 #XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/DDX3Y_violin_expression_ICGC_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Violinplots/DDX3Y_violin_expression_ICGC_data.pdf", width=12, height=12)
 DDX3Yp
 dev.off()
 ```
@@ -455,7 +455,7 @@ UTYp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) + g
 
 
 #XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/UTY_violin_expression_ICGC_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Violinplots/UTY_violin_expression_ICGC_data.pdf", width=12, height=12)
 UTYp
 dev.off()
 
@@ -527,7 +527,7 @@ USP9Yp<-ggplot(Violin_data, aes(x=Sex, y=log(as.numeric(Expression)+0.01,10))) +
 
 
 #XISTp<-ggplot(Violin_data, aes(x=Gender, y=Expression)) + geom_violin(aes(fill=Gender), trim = FALSE) + geom_point(position= position_jitter(seed=1, width = 0.1))+ labs(x=NULL,y="log(RNA Expression) (TPM)")+ theme_bw()+theme(text = element_text(size=13,face="bold"))
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Violinplots/USP9Y_violin_expression_ICGC_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Violinplots/USP9Y_violin_expression_ICGC_data.pdf", width=12, height=12)
 USP9Yp
 dev.off()
 
@@ -555,7 +555,7 @@ barplot(height=RK106_T_XX_expression,beside=T, xlim=c(-1,2),names.arg = c("XIST"
 
 #RK106_T_XX_expression_plot<- barplot(log(as.numeric(RK106_T_XX_expression)+0.01,10),beside=T, ylim=c(0,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"))
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK106_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK106_T_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK106_T_XX_expression,beside=T, xlim=c(-0.5,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -575,7 +575,7 @@ RK113_A_XY_expression<- log10(as.numeric(RK113_A_XY_expression)+0.01)
 
 barplot(height=RK113_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK113_A_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK113_A_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK113_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -593,7 +593,7 @@ RK169_A_XY_expression<- log10(as.numeric(RK169_A_XY_expression)+0.01)
 
 barplot(height=RK169_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK169_A_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK169_A_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK169_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -611,7 +611,7 @@ RK106_A_XX_expression<- log10(as.numeric(RK106_A_XX_expression)+0.01)
 
 barplot(height=RK106_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK106_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK106_A_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK106_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -629,7 +629,7 @@ RK113_T_XY_expression<- log10(as.numeric(RK113_T_XY_expression)+0.01)
 
 barplot(height=RK113_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK113_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK113_T_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK113_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -647,7 +647,7 @@ RK169_T_XY_expression<- log10(as.numeric(RK169_T_XY_expression)+0.01)
 
 barplot(height=RK169_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK169_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK169_T_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK169_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -665,7 +665,7 @@ RK135_T_XX_expression<- log10(as.numeric(RK135_T_XX_expression)+0.01)
 
 barplot(height=RK135_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK135_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK135_T_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK135_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -683,7 +683,7 @@ RK105_T_XY_expression<- log10(as.numeric(RK105_T_XY_expression)+0.01)
 
 barplot(height=RK105_T_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK105_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK105_T_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK105_T_XY_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -701,7 +701,7 @@ RK105_A_XY_expression<- log10(as.numeric(RK105_A_XY_expression)+0.01)
 
 barplot(height=RK105_A_XY_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK105_A_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK105_A_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK105_A_XY_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -719,7 +719,7 @@ RK065_T_XX_expression<- log10(as.numeric(RK065_T_XX_expression)+0.01)
 
 barplot(height=RK065_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK065_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK065_T_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK065_T_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -737,7 +737,7 @@ RK065_A_XX_expression<- log10(as.numeric(RK065_A_XX_expression)+0.01)
 
 barplot(height=RK065_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK065_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK065_A_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK065_A_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -755,7 +755,7 @@ RK116_T_XX_expression<- log10(as.numeric(RK116_T_XX_expression)+0.01)
 
 barplot(height=RK116_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK116_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK116_T_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK116_T_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -773,7 +773,7 @@ RK116_A_XX_expression<- log10(as.numeric(RK116_A_XX_expression)+0.01)
 
 barplot(height=RK116_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK116_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK116_A_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK116_A_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 
@@ -793,7 +793,7 @@ RK066_T_XX_expression<- log10(as.numeric(RK066_T_XX_expression)+0.01)
 
 barplot(height=RK066_T_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK066_T_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK066_T_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK066_T_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -811,7 +811,7 @@ RK066_A_XX_expression<- log10(as.numeric(RK066_A_XX_expression)+0.01)
 
 barplot(height=RK066_A_XX_expression,beside=T, xlim=c(-2,2.5),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK066_A_XX_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK066_A_XX_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK066_A_XX_expression,beside=T, xlim=c(-2,3.0),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 ```
@@ -834,7 +834,7 @@ barplot(height=RK096_T_XY_expression,beside=T, xlim=c(-1,2),names.arg = c("XIST"
 
 #RK106_T_XX_expression_plot<- barplot(log(as.numeric(RK106_T_XX_expression)+0.01,10),beside=T, ylim=c(0,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"))
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/RK096_T_XY_gene_expression_barplots.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/RK096_T_XY_gene_expression_barplots.pdf", width=12, height=12)
 barplot(height=RK096_T_XY_expression,beside=T, xlim=c(-2,2),names.arg = c("XIST","DDX3Y","UTY","USP9Y"),horiz=T,las=1, font.axis=4, cex.axis=3)
 dev.off()
 

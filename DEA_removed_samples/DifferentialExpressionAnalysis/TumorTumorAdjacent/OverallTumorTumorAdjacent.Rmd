@@ -277,11 +277,11 @@ veBayesFit <- eBayes(vfit, robust=TRUE)
 plotSA(veBayesFit, main = "Final model: Mean-variance trend")
 dev.off()
 vTopTable <- topTable(veBayesFit, n=Inf, p.value=1, lfc=0)
-write.csv(vTopTable, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/TumorTumorAdjacent/GeneList/unfiltered_gene_list_tumor_vs_tumor_adjacent.csv")
+write.csv(vTopTable, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/TumorTumorAdjacent/Figures/GeneLists/unfiltered_gene_list_tumor_vs_tumor_adjacent.csv")
 
 DEGs <- topTable(veBayesFit, n=Inf, p.value=0.05, lfc=2)
 DEGs_print <- data.frame(DEGs$GENEID, DEGs$gene_name, DEGs$adj.P.Val, DEGs$logFC)
-write.csv(DEGs_print, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/TumorTumorAdjacent/GeneList/gene_list_tumor_vs_tumor_adjacent.csv")
+write.csv(DEGs_print, "~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/DifferentialExpressionAnalysis/TumorTumorAdjacent/Figures/GeneLists/gene_list_tumor_vs_tumor_adjacent.csv")
 ```
 
 ## **Data Visualization**

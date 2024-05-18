@@ -36,7 +36,7 @@ library(forcats)
 library(stats)
 library(gridExtra)
 
-setwd('~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples')
+setwd('~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples')
 ```
 
 **Defining Colors** 
@@ -60,13 +60,13 @@ femaleAdjacentColor <- sexTissuePalette[5]
 
 This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
 ```{r Reading_in_data}
-metadata <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
-tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
 colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
 
 # Importing gene annotations
 #genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
-genes <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
 genes <- data.frame(genes)
 tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
 genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
@@ -304,11 +304,11 @@ for (gene in keys(h)) {
    colnames(Adjacent_expressionData)<- c("Expression","Virus", "SexNumeric","SexViralNumeric","Names")
    
   #Creates a box plot of y-linked gene expression data of all tumor samples 
-  pdf(paste("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/y_linked_gene_tumor_expression/",gene,"_tumor_expression_data.pdf",sep=""), width=12, height=12)
+  pdf(paste("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/y_linked_gene_tumor_expression/",gene,"_tumor_expression_data.pdf",sep=""), width=12, height=12)
   print(ggplot(Tumor_expressionData, aes(x=reorder(Names,SexViralNumeric),y= log(as.numeric(Expression)+0.01,10),fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ xlab("Tumor Samples Expression data") + labs(title=paste(gene,"Tumor Samples Expression Data")))
   dev.off() 
    #Creates a box plot of y-linked gene expression data of all tumor adjacent samples
-  pdf(paste("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/y_linked_gene_adjacent_expression/",gene,"_tumor_adjacent_expression_data.pdf",sep=""), width=12, height=12)
+  pdf(paste("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/y_linked_gene_adjacent_expression/",gene,"_tumor_adjacent_expression_data.pdf",sep=""), width=12, height=12)
   print(ggplot(Adjacent_expressionData, aes(x=reorder(Names,SexViralNumeric),y= log(as.numeric(Expression)+0.01,10),fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ xlab("Adjacent Samples Expression data") + labs(title=paste(gene,"Tumor Adjacent Samples Expression Data")))
   dev.off() 
 }
@@ -376,21 +376,21 @@ for (i in 1:dim(XistAdjacent)[1]) {
    colnames(XistAdjacent)<- c("Expression","Virus", "SexNumeric","SexViralNumeric","Names")
    
 #Creates a box plot of Xist gene expression data of all tumor samples 
-  pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/XIST_tumor_expression_data.pdf", width=12, height=12)
+  pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/XIST_tumor_expression_data.pdf", width=12, height=12)
   print(ggplot(XistTumor, aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ xlab("Tumor Samples Expression data") + labs(title="XIST Tumor Samples Expression Data"))
   dev.off() 
   
-   pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/XIST_tumor_expression_500Axis_data.pdf", width=12, height=12)
+   pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/XIST_tumor_expression_500Axis_data.pdf", width=12, height=12)
   print(ggplot(XistTumor, aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2)) + coord_cartesian(ylim=c(0,500))+ xlab("Tumor Samples Expression data") + labs(title="XIST Tumor  Samples Expression Data"))
   dev.off() 
   
   
-   pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/XIST_tumor_adjacent_expression_data.pdf", width=12, height=12)
+   pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/XIST_tumor_adjacent_expression_data.pdf", width=12, height=12)
   print(ggplot(XistAdjacent, aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ xlab("Adjacent Samples Expression data") + labs(title="XIST Tumor Adjacent Samples Expression Data"))
   dev.off() 
   
    #Creates a box plot of y-linked gene expression data of all tumor adjacent samples
-  pdf("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/XIST_tumor_adjacent_expression_500Axis_data.pdf", width=12, height=12)
+  pdf("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/XIST_tumor_adjacent_expression_500Axis_data.pdf", width=12, height=12)
   print(ggplot(XistAdjacent, aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(0,500))+ xlab("Adjacent Samples Expression data") + labs(title="XIST Tumor Adjacent Samples Expression Data"))
   dev.off() 
 ```
@@ -521,22 +521,22 @@ for (gene in keys(h)) {
   colnames(Adjacent_expressionData)<- c("Expression","Virus", "SexNumeric","SexViralNumeric","Names")
    
   #Creates a box plot of x degenerate gene expression data of all tumor samples 
-  pdf(paste("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/",gene,"_tumor_expression_data.pdf",sep=""), width=12, height=12)
+  pdf(paste("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/",gene,"_tumor_expression_data.pdf",sep=""), width=12, height=12)
   print(ggplot(Tumor_expressionData, aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ xlab("Tumor Samples Expression data") + labs(title=paste(gene,"Tumor Samples Expression Data")))
   dev.off() 
   
    #Creates a box plot of x degenerate expression data of all tumor  samples with x axis set to 500 to see lowly expressed values
-  pdf(paste("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/",gene,"_tumor_expression_500Axis_data.pdf",sep=""), width=12, height=12)
+  pdf(paste("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_tumor_gene_expression/",gene,"_tumor_expression_500Axis_data.pdf",sep=""), width=12, height=12)
   print(ggplot(Tumor_expressionData,aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(0,500))+xlab("Tumor Samples Expression data") + labs(title=paste(gene,"Tumor Samples Expression Data")))
   dev.off() 
   
   #Creates a box plot of x degenerate gene expression data of all tumor adjacent samples
-  pdf(paste("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/",gene,"_tumor_adjacent_expression_data.pdf",sep=""), width=12, height=12)
+  pdf(paste("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/",gene,"_tumor_adjacent_expression_data.pdf",sep=""), width=12, height=12)
   print(ggplot(Adjacent_expressionData,aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ xlab("Adjacent Samples Expression data") + labs(title=paste(gene,"Tumor Adjacent Samples Expression Data")))
   dev.off() 
   
     #Creates a box plot of x degenerate gene expression data of all tumor adjacent samples  with x axis set to 500 to see lowly expressed values
-  pdf(paste("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/",gene,"_tumor_adjacent_expression_500Axis_data.pdf",sep=""), width=12, height=12)
+  pdf(paste("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/newFigures/x_degenerate_adjacent_gene_expression/",gene,"_tumor_adjacent_expression_500Axis_data.pdf",sep=""), width=12, height=12)
   print(ggplot(Adjacent_expressionData,aes(x=reorder(Names,SexViralNumeric),y= Expression,fill=SexViralNumeric)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(0,500))+xlab("Adjacent Samples Expression data") + labs(title=paste(gene,"Tumor Adjacent Samples Expression Data")))
   dev.off() 
 
