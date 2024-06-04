@@ -43,8 +43,6 @@ library(stringr)
 library(forcats)
 library(stats)
 library(gridExtra)
-
-setwd('~/Desktop/Research Projects/Liver Cancer Project')
 ```
 
 **Defining Colors** 
@@ -68,13 +66,13 @@ femaleAdjacentColor <- sexTissuePalette[5]
 
 This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
 ```{r Reading_in_data}
-metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project//Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
-tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
 colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
 
 # Importing gene annotations
 #genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
-genes <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
 genes <- data.frame(genes)
 tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
 genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
@@ -190,7 +188,7 @@ This creates outputs an MDS Plot that we've previously see showing the dissimila
 # Removing batch effects
 vCorrectLibtype <- removeBatchEffect(v, batch=v$targets$library_type)
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/Version 2 Sex Stratified MDS Plot top 25 genes.pdf")
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/Version 2 Sex Stratified MDS Plot top 25 genes.pdf")
 mds <- plotMDS(vCorrectLibtype, top = 25, ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -239,7 +237,7 @@ legend("topright", pch=c(17, 15, 16, 3),
 ##extracting the female tumor samples from the distance matrix
 #femaletumordistance <- matrixdistance[, grep("tumor-XX" ,colnames(matrixdistance))] + #matrixdistance[, grep("tumor-XX", rownames(matrixdistance))]
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/Test Version Sex Stratified MDS Plot top 25 genes.pdf", width=75, height=75)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/Test Version Sex Stratified MDS Plot top 25 genes.pdf", width=75, height=75)
 mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -263,13 +261,13 @@ dev.off()
 
 This code chunk colors all samples with the ID RK106 yellow and the rest of the samples are colored black. The MDS plots have kept the labels that are the column names of the variable vCorrectLibtype. 
 ```{r Coloring outliers version 1}
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/ Sample coloring RK106 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring RK106 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
 mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
                                  ifelse(v$targets$viral %in% c("both"), 16,  3))),
                col=ifelse(v$targets$ID=="RK106",
-                          "#FFC20A", "black"),
+                          "#40B0A6", "black"),
                gene.selection = "common")
 legend("bottomleft", pch=c(15), 
        col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
@@ -285,7 +283,7 @@ This code chunk colors all samples with the ID RK113 yellow and the rest of the 
 The goal of the coloring is to see where the samples are located on the MDS plot. 
 ```{r Coloring outliers RK113}
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/ Sample coloring RK113 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring RK113 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
 mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -307,7 +305,7 @@ This code chunk colors all samples with the ID RK169 yellow and the rest of the 
 The goal of the coloring is to see where the samples are located on the MDS plot. 
 ```{r Coloring outliers RK169}
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/ Sample coloring RK169 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring RK169 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
 mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -326,7 +324,7 @@ dev.off()
 
 ```{r RK096}
 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/MDS Plots/ Sample coloring 096 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring 096 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
 mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
                pch=ifelse(v$targets$viral %in% c("HBV"), 17,
                           ifelse(v$targets$viral %in% c("HCV"), 15,
@@ -343,12 +341,110 @@ legend("topright", pch=c(17, 15, 16, 3),
 dev.off()
 ```
 
+```{r sample 105}
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring 105 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$ID=="RK105",
+                          "#FFC20A", "black"),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+```
 
+```{r sample 065}
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring 065 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$ID=="RK065",
+                          "#40B0A6", "black"),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+```
+
+```{r sample 116}
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring 116 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$ID=="RK116",
+                          "#40B0A6", "black"),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+```
+
+```{r sample 066}
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring 066 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$ID=="RK066",
+                          "#40B0A6", "black"),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+```
+
+```{r RK096}
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/MDS Plots/ Sample coloring 096 Sex Stratified MDS Plot top 25 genes.pdf", width=50, height=50)
+mds <- plotMDS(vCorrectLibtype, top = 25, labels= colnames(vCorrectLibtype), ndim = 10, dim.plot = c(1,2), plot=TRUE, cex=2,
+               pch=ifelse(v$targets$viral %in% c("HBV"), 17,
+                          ifelse(v$targets$viral %in% c("HCV"), 15,
+                                 ifelse(v$targets$viral %in% c("both"), 16,  3))),
+               col=ifelse(v$targets$ID=="RK096",
+                          "#FFC20A", "black"),
+               gene.selection = "common")
+legend("bottomleft", pch=c(15), 
+       col=c( "#FFC20A", "#40B0A6","#E66100", "#006CD1"),
+       legend=c("Male tumor","Female tumor", "Male adjacent","Female adjacent"))
+legend("topright", pch=c(17, 15, 16, 3),
+       col=c("black"),
+       legend=c("HBV", "HCV"))
+dev.off()
+```
 **Conclusion**
-Four samples and their paired samples were investigated in this file. Sample RK-135-tumor-XX is a female tumor sample that was located in the male tumor sample cluster was found to have no paired adjacent sample based on looking through the "metadata" variable. This sample may end up being removed from the sample data based on this information. 
+Nine samples and their paired samples were investigated in this file. Sample RK-135-tumor-XX is a female tumor sample that was located in the male tumor sample cluster was found to have no paired adjacent sample based on looking through the "metadata" variable. This sample may end up being removed from the sample data based on this information. 
 
 Sample RK106-tumor-XX  is a female tumor sample also found in the male tumor cluster. Its paired sample, RK106-adjacent-XX, was found to be located in the male adjacent cluster. Based on this information, these samples possibly have mislabeled sex, however, further investigation is needed. 
 
 Sample RK113-adjacent-XY is a male adjacent sample located in the male tumor cluster. Its paired sample is a male tumor sample that is located in the proper male tumor cluster. Based on this information it is thought that some tumor sample contaminated the normal sample. This sample may be removed based on this information.
 
-Sample RK169-adjacent-XY is a male adjacent sample located in the male tumor cluster. Its paired sample is a male tumor samples located in the male adjacent cluster. Based on this information, these samples possibly have mislabed lesion type, however, further investigation is needed. 
+Sample RK169-adjacent-XY is a male adjacent sample located in the male tumor cluster. Its paired sample is a male tumor sample located in the male adjacent cluster. Based on this information, these samples possibly have mislabeled lesion type, however, further investigation is needed. 
+
+Sample RK105-adjacent-XY is a male adjacent sample located in the female tumor cluster. Its paired sample is a male tumor sample located in the female adjacent cluster.  Based on this information, these samples possibly have mislabeled sex , however, further investigation is needed.
+
+Sample RK065-tumor-XX is a female tumor sample found in the female adjacent cluster. Its paired sample is a female adjacent sample that is located in the female tumor cluster. Based on this information, these samples possibly have mislabeled lesion type, however, further investigation is needed.
+
+Sample RK116-tumor-XX is a female tumor sample that is found in the female adjacent cluster. Its paired sample is a female adjacent that is located in the proper female adjacent cluster. Based on this information, it is possible that the female tumor sample was contaminated by the normal sample. However, more investigation is needed.
+
+Sample RK066-adjacent-XX is a female adjacent sample that is found in the female tumor cluster. Its paired sample is a female tumor sample that is located in the proper female tumor cluster. Based on this information, it is possible that the female normal sample was contaminated by the tumor sample. However, more investigation is needed.
+
+Sample RK096-tumor-XY is a male tumor sample found in the male adjacent cluster. The sample has no paired normal tissue sample based on looking through the "metadata" variable.This sample may end up being removed from the sample data based on this information. 

@@ -61,8 +61,6 @@ library(stringr)
 library(forcats)
 library(stats)
 library(gridExtra)
-
-setwd('~/Desktop/Research Projects/Liver Cancer Project')
 ```
 
 **Defining Colors** 
@@ -86,13 +84,13 @@ femaleAdjacentColor <- sexTissuePalette[5]
 
 This code is where you read in all the data files that are going to be used in the script. The data is also converted into a variety of variables that makes the data easier to handle. The data is also cleaned up to make sure the analysis done later is accurate and precise. 
 ```{r Reading_in_data}
-metadata <- read.table("~/Desktop/Research Projects/Liver Cancer Project//Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
-tumorAdjacentExp <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/metadata_for_de.csv", row.names=1,header=TRUE, sep=",") #changing the name of the file
+tumorAdjacentExp <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/japan_all_samples_salmon_expression_counts.txt", row.names = 1, header=TRUE) #changing the name of the file 
 colnames(tumorAdjacentExp) <- gsub("\\.", "-", colnames(tumorAdjacentExp)) #changing the column names 
 
 # Importing gene annotations
 #genes <- read.table("gencode.v25.chr_patch_hapl_scaff.annotation.bed", header=FALSE, sep="\t")
-genes <- read.table("~/Desktop/Research Projects/Liver Cancer Project/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
+genes <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/gencodeTranscripts.txt", header=TRUE, sep="\t")
 genes <- data.frame(genes)
 tumorAdjacentExp <- tumorAdjacentExp[rownames(tumorAdjacentExp) %in% genes$GENEID ,]
 genes <- genes[match(rownames(tumorAdjacentExp), genes$GENEID),]
@@ -269,7 +267,7 @@ for (i in 1:dim(Tumor_XIST)[1])
 }
 
 #Creates a box plot of XIST gene expression data of all tumor samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/XIST_tumor_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/XIST_tumor_expression_data.pdf", width=12, height=12)
 ggplot(Tumor_XIST, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Samples Expression data") + labs(title="XIST Tumor Samples Expression Data")
 dev.off()
 ```
@@ -342,7 +340,7 @@ for (i in 1:dim(Tumor_DDX3Y)[1])
 }
 
 #Creates a box plot of DDX3Y gene expression data of all tumor samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/DDX3Y_tumor_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/DDX3Y_tumor_expression_data.pdf", width=12, height=12)
 ggplot(Tumor_DDX3Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Samples Expression data") + labs(title="DDX3Y Tumor Samples Expression Data")
 dev.off()
 ```
@@ -415,7 +413,7 @@ for (i in 1:dim(Tumor_UTY)[1])
 }
 
 #Creates a box plot of UTY gene expression data of all tumor samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/UTY_tumor_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/UTY_tumor_expression_data.pdf", width=12, height=12)
 ggplot(Tumor_UTY, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Samples Expression data") + labs(title="UTY Tumor Samples Expression Data")
 dev.off()
 ```
@@ -488,7 +486,7 @@ for (i in 1:dim(Tumor_USP9Y)[1])
 }
 
 #Creates a box plot of USP9Y gene expression data of all tumor samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/USP9Y_tumor_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/USP9Y_tumor_expression_data.pdf", width=12, height=12)
 ggplot(Tumor_USP9Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Samples Expression data") + labs(title="USP9Y Tumor Samples Expression Data")
 dev.off()
 ```
@@ -510,7 +508,7 @@ for (i in 1:dim(TumorAdj_XIST)[1])
 }
 
 #Creates a box plot of XIST gene expression data of all tumor adjacent samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/XIST_tumorADJ_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/XIST_tumorADJ_expression_data.pdf", width=12, height=12)
 ggplot(TumorAdj_XIST, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="XIST Tumor Adjacent Samples Expression Data")
 dev.off()
 ```
@@ -532,7 +530,7 @@ for (i in 1:dim(TumorAdj_DDX3Y)[1])
 }
 
 #Creates a box plot of DDX3Y gene expression data of all tumor adjacent samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/DDX3Y_tumorADJ_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/DDX3Y_tumorADJ_expression_data.pdf", width=12, height=12)
 ggplot(TumorAdj_DDX3Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="DDX3Y Tumor Adjacent Samples Expression Data")
 dev.off()
 ```
@@ -554,7 +552,7 @@ for (i in 1:dim(TumorAdj_UTY)[1])
 }
 
 #Creates a box plot of UTY gene expression data of all tumor adjacent samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/UTY_tumorADJ_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/UTY_tumorADJ_expression_data.pdf", width=12, height=12)
 ggplot(TumorAdj_UTY, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-0.5,3.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="UTY Tumor Adjacent Samples Expression Data")
 dev.off()
 ```
@@ -576,7 +574,7 @@ for (i in 1:dim(TumorAdj_USP9Y)[1])
 }
 
 #Creates a box plot of USP9Y gene expression data of all tumor samples 
-pdf("~/Desktop/Research Projects/Liver Cancer Project/Figures/Barplots/USP9Y_tumorADJ_expression_data.pdf", width=12, height=12)
+pdf("~/Desktop/ResearchProjects/LiverCancer/Figures/Barplots/USP9Y_tumorADJ_expression_data.pdf", width=12, height=12)
 ggplot(TumorAdj_USP9Y, aes(x=reorder(Names,SexNumeric),y=Expression,fill=Sex)) + geom_bar(stat="identity", colour="black") +theme(axis.text.x = element_text(angle = 90, vjust = 0.75,hjust = 0.75, size=8)) +  scale_x_discrete(guide = guide_axis(n.dodge = 2))+ coord_cartesian(ylim=c(-2,2.5))+ xlab("Tumor Adjacent Samples Expression data") + labs(title="USP9Y Tumor Adjacent Samples Expression Data")
 dev.off()
 ```

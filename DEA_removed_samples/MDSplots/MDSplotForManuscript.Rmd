@@ -173,7 +173,6 @@ dge <- calcNormFactors(dge, method="TMM")
 dim(dge$genes)
 ```
 
-The only covariate included is the
 ```{r Voom}
 # ===================================== ======================
 # ===========================================================

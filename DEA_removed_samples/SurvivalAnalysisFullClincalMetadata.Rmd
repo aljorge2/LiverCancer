@@ -37,7 +37,7 @@ identical(HCC_metadata$submitted_donor_id, Clinical_metadata$ID)
 Total_metadata <- cbind(HCC_metadata, Clinical_metadata)
 
 #reading in meta dataset
-metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/MedicalCovariateAnalysis/data/metadataSubset.csv", row.names=1)
+metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/MedicalCovariateAnalysis/data/metadataSubset.csv", row.names=1)
 ```
 ```{r}
 #pulling sample ids

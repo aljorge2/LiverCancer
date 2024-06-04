@@ -32,12 +32,12 @@ library(ggplot2)
 Here the full metadata is read in as a dataframe titled "metadata" and a curated metadata set is titled "metadatasmall"
 ```{r  Reading in data}
 #reading in Full meta dataset
-metadata <- read.table("~/Desktop/ResearchProjects/LiverCancerProject/Metadata/Full_RIKEN_clinical_data.csv", row.names=1,header=TRUE, sep=",")
+metadata <- read.table("~/Desktop/ResearchProjects/LiverCancer/Metadata/Full_RIKEN_clinical_data.csv", row.names=1,header=TRUE, sep=",")
 ```
 
 ```{r}
 #reading in meta dataset
-metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancerProject/DEA_removed_samples/MedicalCovariateAnalysis/data/metadataSubset.csv", row.names=1)
+metadataSmall <- read.csv("~/Desktop/ResearchProjects/LiverCancer/DEA_removed_samples/MedicalCovariateAnalysis/data/metadataSubset.csv", row.names=1)
 
 ```
 
